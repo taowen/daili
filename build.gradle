@@ -1,0 +1,42 @@
+apply plugin: 'java'
+apply plugin: 'application'
+
+mainClassName = 'org.github.taowen.daili.Main'
+sourceCompatibility = 1.6
+targetCompatibility = 1.6
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+}
+
+configurations {
+    kilim
+}
+
+run {
+    standardInput = System.in
+    if ( project.hasProperty("appArgs") ) {
+        args Eval.me(appArgs)
+    }
+}
+
+jar {
+    manifest { attributes 'Main-Class': 'org.github.taowen.daili.Main' }
+}
+
+dependencies {
+    compile 'org.slf4j:slf4j-api:1.7.5'
+    compile 'org.github.taowen:kilim:1.0'
+    kilim 'org.github.taowen:kilim:1.0'
+    testCompile "junit:junit:4.11"
+}
+
+task weave(type: JavaExec) {
+    classpath "$project.buildDir/classes/main"
+    classpath configurations.kilim
+    main = "kilim.tools.Weaver"
+    args "-d", "$project.buildDir/classes/main", "$project.buildDir/classes/main"
+}
+
+classes.dependsOn(weave)
