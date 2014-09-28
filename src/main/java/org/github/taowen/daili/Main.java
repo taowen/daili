@@ -7,7 +7,7 @@ import java.nio.channels.ServerSocketChannel;
 
 public class Main {
     public static void main(String[] args) throws Exception {
-        DefaultScheduler scheduler = new DefaultScheduler();
+        Scheduler scheduler = new Scheduler();
         DailiTask task = new DailiTask(scheduler) {
             @Override
             public void execute() throws Pausable, Exception {
