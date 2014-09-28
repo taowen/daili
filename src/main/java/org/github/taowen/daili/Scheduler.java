@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
@@ -38,11 +39,7 @@ public class Scheduler {
         } else {
             selectionKey.interestOps(selectionKey.interestOps() | SelectionKey.OP_ACCEPT);
         }
-        WaitingSelectorIO waitingSelectorIO = (WaitingSelectorIO) selectionKey.attachment();
-        waitingSelectorIO.acceptBlockedAt = System.currentTimeMillis();
-        waitingSelectorIO.acceptTask = (Task) Task.getCurrentTask();
-        selectionKey.attach(waitingSelectorIO);
-        Task.pause(waitingSelectorIO);
+        ((WaitingSelectorIO) selectionKey.attachment()).acceptBlocked();
         return serverSocketChannel.accept();
     }
 
@@ -60,10 +57,28 @@ public class Scheduler {
             for (SelectionKey selectionKey : selectionKeys) {
                 WaitingSelectorIO waitingSelectorIO = (WaitingSelectorIO) selectionKey.attachment();
                 if (selectionKey.isAcceptable()) {
-                    Task taskToCall = waitingSelectorIO.acceptTask;
-                    waitingSelectorIO.acceptBlockedAt = 0;
-                    waitingSelectorIO.acceptTask = null;
-                    callSoon(taskToCall);
+                    Task taskUnblocked = waitingSelectorIO.acceptUnblocked();
+                    if (null == taskUnblocked) {
+                        selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_ACCEPT);
+                    } else {
+                        callSoon(taskUnblocked);
+                    }
+                }
+                if (selectionKey.isReadable()) {
+                    Task taskUnblocked = waitingSelectorIO.readUnblocked();
+                    if (null == taskUnblocked) {
+                        selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_READ);
+                    } else {
+                        callSoon(taskUnblocked);
+                    }
+                }
+                if (selectionKey.isWritable()) {
+                    Task taskUnblocked = waitingSelectorIO.writeUnblocked();
+                    if (null == taskUnblocked) {
+                        selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_WRITE);
+                    } else {
+                        callSoon(taskUnblocked);
+                    }
                 }
             }
         }
@@ -82,5 +97,35 @@ public class Scheduler {
         } catch (Exception e) {
             LOGGER.error("failed to execute task: " + task, e);
         }
+    }
+
+    public int read(SocketChannel socketChannel, ByteBuffer byteBuffer) throws IOException, Pausable {
+        int bytesCount = socketChannel.read(byteBuffer);
+        if (bytesCount > 0) {
+            return bytesCount;
+        }
+        SelectionKey selectionKey = socketChannel.keyFor(selector);
+        if (null == selectionKey) {
+            selectionKey = socketChannel.register(selector, SelectionKey.OP_READ, new WaitingSelectorIO());
+        } else {
+            selectionKey.interestOps(selectionKey.interestOps() | SelectionKey.OP_READ);
+        }
+        ((WaitingSelectorIO) selectionKey.attachment()).readBlocked();
+        return socketChannel.read(byteBuffer);
+    }
+
+    public int write(SocketChannel socketChannel, ByteBuffer byteBuffer) throws IOException, Pausable {
+        int bytesCount = socketChannel.write(byteBuffer);
+        if (bytesCount > 0) {
+            return bytesCount;
+        }
+        SelectionKey selectionKey = socketChannel.keyFor(selector);
+        if (null == selectionKey) {
+            selectionKey = socketChannel.register(selector, SelectionKey.OP_WRITE, new WaitingSelectorIO());
+        } else {
+            selectionKey.interestOps(selectionKey.interestOps() | SelectionKey.OP_WRITE);
+        }
+        ((WaitingSelectorIO) selectionKey.attachment()).writeBlocked();
+        return socketChannel.write(byteBuffer);
     }
 }

@@ -3,7 +3,9 @@ package org.github.taowen.daili;
 import kilim.Pausable;
 
 import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
 import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 
 public class Main {
     public static void main(String[] args) throws Exception {
@@ -15,8 +17,14 @@ public class Main {
                 serverSocketChannel.socket().bind(new InetSocketAddress(9090));
                 serverSocketChannel.configureBlocking(false);
                 System.out.println("listening...");
-                scheduler.accept(serverSocketChannel);
-                System.out.println("hello");
+                SocketChannel socketChannel = scheduler.accept(serverSocketChannel);
+                socketChannel.configureBlocking(false);
+                ByteBuffer byteBuffer = ByteBuffer.allocateDirect(1024);
+                while (scheduler.read(socketChannel, byteBuffer) > 0) {
+                    byteBuffer.flip();
+                    scheduler.write(socketChannel, byteBuffer);
+                    byteBuffer.clear();
+                }
             }
         };
         scheduler.callSoon(task);
