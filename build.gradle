@@ -25,6 +25,10 @@ jar {
     manifest { attributes 'Main-Class': 'org.github.taowen.daili.Main' }
 }
 
+test {
+    testLogging.showStandardStreams = true
+}
+
 dependencies {
     compile 'org.slf4j:slf4j-api:1.7.5'
     compile 'org.github.taowen:kilim:1.0'
@@ -32,11 +36,21 @@ dependencies {
     testCompile "junit:junit:4.11"
 }
 
-task weave(type: JavaExec) {
+task weaveMain(type: JavaExec) {
     classpath "$project.buildDir/classes/main"
     classpath configurations.kilim
     main = "kilim.tools.Weaver"
     args "-d", "$project.buildDir/classes/main", "$project.buildDir/classes/main"
 }
 
-classes.dependsOn(weave)
+task weaveTest(type: JavaExec) {
+    classpath "$project.buildDir/classes/main"
+    classpath "$project.buildDir/classes/test"
+    classpath configurations.kilim
+    classpath configurations.testCompile
+    main = "kilim.tools.Weaver"
+    args "-d", "$project.buildDir/classes/test", "$project.buildDir/classes/test"
+}
+
+classes.dependsOn weaveMain
+testClasses.dependsOn weaveTest
