@@ -8,14 +8,9 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.channels.ServerSocketChannel;
 
-public class TcpAcceptTest extends TestCase {
+public class TcpAcceptTest extends UsingFixture {
     public void testAcceptZero() throws IOException {
-        Scheduler scheduler = new Scheduler() {
-            @Override
-            protected int doSelect() throws IOException {
-                return selector.selectNow();
-            }
-        };
+        Scheduler scheduler = new SchedulerFixture(this).scheduler;
         DailiTask task = new DailiTask(scheduler) {
             @Override
             public void execute() throws Pausable, Exception {
@@ -30,15 +25,9 @@ public class TcpAcceptTest extends TestCase {
         scheduler.callSoon(task);
         scheduler.loopOnce();
         assertNotSame("accepted", task.exitResult);
-        scheduler.close();
     }
     public void testAcceptOne() throws IOException {
-        Scheduler scheduler = new Scheduler() {
-            @Override
-            protected int doSelect() throws IOException {
-                return selector.selectNow();
-            }
-        };
+        Scheduler scheduler = new SchedulerFixture(this).scheduler;
         DailiTask task = new DailiTask(scheduler) {
             @Override
             public void execute() throws Pausable, Exception {
@@ -46,7 +35,7 @@ public class TcpAcceptTest extends TestCase {
                 serverSocketChannel.socket().setReuseAddress(true);
                 serverSocketChannel.socket().bind(new InetSocketAddress(9090));
                 serverSocketChannel.configureBlocking(false);
-                scheduler.accept(serverSocketChannel);;
+                scheduler.accept(serverSocketChannel);
                 exit("accepted");
             }
         };
