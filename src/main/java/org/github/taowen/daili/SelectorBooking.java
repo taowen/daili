@@ -4,7 +4,10 @@ import kilim.Pausable;
 import kilim.PauseReason;
 import kilim.Task;
 
-class WaitingSelectorIO implements PauseReason {
+import java.nio.channels.SelectableChannel;
+import java.util.Queue;
+
+class SelectorBooking implements PauseReason {
     private long readBlockedAt;
     private Task readTask;
     private long writeBlockedAt;
@@ -13,6 +16,10 @@ class WaitingSelectorIO implements PauseReason {
     private Task acceptTask;
     private long connectBlockedAt;
     private Task connectTask;
+
+    public SelectorBooking(Queue<SelectorBooking> bookings) {
+        bookings.offer(this);
+    }
 
     public void readBlocked() throws Pausable {
         if (null != readTask) {

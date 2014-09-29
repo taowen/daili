@@ -27,13 +27,15 @@ jar {
 
 test {
     testLogging.showStandardStreams = true
+    systemProperty 'logback.configurationFile', 'logback.xml'
 }
 
 dependencies {
-    compile 'org.slf4j:slf4j-api:1.7.5'
+    compile 'org.slf4j:slf4j-api:1.7.+'
     compile 'org.github.taowen:kilim:1.0'
     kilim 'org.github.taowen:kilim:1.0'
-    testCompile "junit:junit:4.11"
+    testCompile 'junit:junit:4.+'
+    runtime 'ch.qos.logback:logback-classic:1.+'
 }
 
 task weaveMain(type: JavaExec) {
