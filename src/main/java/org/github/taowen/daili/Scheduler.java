@@ -8,16 +8,14 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
-import java.util.LinkedList;
-import java.util.PriorityQueue;
-import java.util.Queue;
-import java.util.Set;
+import java.util.*;
 
 public class Scheduler {
     private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
     protected Selector selector;
     private Queue<Task> readyTasks = new LinkedList<Task>();
     private Queue<SelectorBooking> selectorBookings = new PriorityQueue<SelectorBooking>();
+    public int timeout = 1000 * 60;
 
     {
         try {
@@ -35,17 +33,19 @@ public class Scheduler {
         }
         SelectionKey selectionKey = serverSocketChannel.keyFor(selector);
         if (null == selectionKey) {
-            SelectorBooking booking = addSelectorBooking();
-            selectionKey = serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT, booking);
+            selectionKey = serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
+            SelectorBooking booking = addSelectorBooking(selectionKey);
+            selectionKey.attach(booking);
         } else {
             selectionKey.interestOps(selectionKey.interestOps() | SelectionKey.OP_ACCEPT);
         }
-        ((SelectorBooking) selectionKey.attachment()).acceptBlocked();
+        SelectorBooking booking = (SelectorBooking) selectionKey.attachment();
+        booking.acceptBlocked(getCurrentTimeMillis() + timeout);
         return serverSocketChannel.accept();
     }
 
-    private SelectorBooking addSelectorBooking() {
-        return new SelectorBooking(selectorBookings);
+    private SelectorBooking addSelectorBooking(SelectionKey selectionKey) {
+        return new SelectorBooking(selectorBookings, selectionKey);
     }
 
     public void callSoon(Task task) {
@@ -54,41 +54,47 @@ public class Scheduler {
         }
     }
 
-    public void loop() throws IOException {
-        while (true) {
-            loopOnce();
+    public void loop() {
+        while (loopOnce()) {
         }
     }
 
-    void loopOnce() throws IOException {
-        executeReadyTasks();
-        doSelect();
-        Set<SelectionKey> selectionKeys = selector.selectedKeys();
-        for (SelectionKey selectionKey : selectionKeys) {
+    boolean loopOnce() {
+        try {
+            executeReadyTasks();
+            doSelect();
+            Iterator<SelectionKey> iterator = selector.selectedKeys().iterator();
+            ioUnblocked(iterator);
+            while (hasDeadSelectorBooking()) {
+                SelectorBooking booking = selectorBookings.poll();
+                booking.cancelDeadTasks(getCurrentTimeMillis());
+            }
+            return true;
+        } catch (Exception e) {
+            LOGGER.error("loop died", e);
+            return false;
+        }
+    }
+
+    private boolean hasDeadSelectorBooking() {
+        SelectorBooking booking = selectorBookings.peek();
+        if (null == booking) {
+            return false;
+        }
+        return booking.getEarliestDeadline() < getCurrentTimeMillis();
+    }
+
+    protected long getCurrentTimeMillis() {
+        return System.currentTimeMillis();
+    }
+
+    private void ioUnblocked(Iterator<SelectionKey> iterator) {
+        while (iterator.hasNext()) {
+            SelectionKey selectionKey = iterator.next();
+            iterator.remove();
             SelectorBooking selectorBooking = (SelectorBooking) selectionKey.attachment();
-            if (selectionKey.isAcceptable()) {
-                Task taskUnblocked = selectorBooking.acceptUnblocked();
-                if (null == taskUnblocked) {
-                    selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_ACCEPT);
-                } else {
-                    callSoon(taskUnblocked);
-                }
-            }
-            if (selectionKey.isReadable()) {
-                Task taskUnblocked = selectorBooking.readUnblocked();
-                if (null == taskUnblocked) {
-                    selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_READ);
-                } else {
-                    callSoon(taskUnblocked);
-                }
-            }
-            if (selectionKey.isWritable()) {
-                Task taskUnblocked = selectorBooking.writeUnblocked();
-                if (null == taskUnblocked) {
-                    selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_WRITE);
-                } else {
-                    callSoon(taskUnblocked);
-                }
+            for (Task task : selectorBooking.ioUnblocked()) {
+                callSoon(task);
             }
         }
     }
@@ -119,12 +125,14 @@ public class Scheduler {
         }
         SelectionKey selectionKey = socketChannel.keyFor(selector);
         if (null == selectionKey) {
-            SelectorBooking booking = addSelectorBooking();
-            selectionKey = socketChannel.register(selector, SelectionKey.OP_READ, booking);
+            selectionKey = socketChannel.register(selector, SelectionKey.OP_READ);
+            SelectorBooking booking = addSelectorBooking(selectionKey);
+            selectionKey.attach(booking);
         } else {
             selectionKey.interestOps(selectionKey.interestOps() | SelectionKey.OP_READ);
         }
-        ((SelectorBooking) selectionKey.attachment()).readBlocked();
+        SelectorBooking booking = (SelectorBooking) selectionKey.attachment();
+        booking.readBlocked(getCurrentTimeMillis() + timeout);
         return socketChannel.read(byteBuffer);
     }
 
@@ -135,12 +143,14 @@ public class Scheduler {
         }
         SelectionKey selectionKey = socketChannel.keyFor(selector);
         if (null == selectionKey) {
-            SelectorBooking booking = addSelectorBooking();
-            selectionKey = socketChannel.register(selector, SelectionKey.OP_WRITE, booking);
+            selectionKey = socketChannel.register(selector, SelectionKey.OP_WRITE);
+            SelectorBooking booking = addSelectorBooking(selectionKey);
+            selectionKey.attach(booking);
         } else {
             selectionKey.interestOps(selectionKey.interestOps() | SelectionKey.OP_WRITE);
         }
-        ((SelectorBooking) selectionKey.attachment()).writeBlocked();
+        SelectorBooking booking = (SelectorBooking) selectionKey.attachment();
+        booking.writeBlocked(getCurrentTimeMillis() + timeout);
         return socketChannel.write(byteBuffer);
     }
 
