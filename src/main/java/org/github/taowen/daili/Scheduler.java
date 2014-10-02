@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
 import java.util.*;
+import java.util.concurrent.TimeoutException;
 
 public class Scheduler {
     private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
@@ -26,7 +27,7 @@ public class Scheduler {
         }
     }
 
-    public SocketChannel accept(ServerSocketChannel serverSocketChannel) throws IOException, Pausable {
+    public SocketChannel accept(ServerSocketChannel serverSocketChannel) throws IOException, Pausable, TimeoutException {
         SocketChannel socketChannel = serverSocketChannel.accept();
         if (null != socketChannel) {
             return socketChannel;
@@ -128,7 +129,7 @@ public class Scheduler {
         }
     }
 
-    public int read(SocketChannel socketChannel, ByteBuffer byteBuffer) throws IOException, Pausable {
+    public int read(SocketChannel socketChannel, ByteBuffer byteBuffer) throws IOException, Pausable, TimeoutException {
         int bytesCount = socketChannel.read(byteBuffer);
         if (bytesCount > 0) {
             return bytesCount;
@@ -146,7 +147,7 @@ public class Scheduler {
         return socketChannel.read(byteBuffer);
     }
 
-    public int write(SocketChannel socketChannel, ByteBuffer byteBuffer) throws IOException, Pausable {
+    public int write(SocketChannel socketChannel, ByteBuffer byteBuffer) throws IOException, Pausable, TimeoutException {
         int bytesCount = socketChannel.write(byteBuffer);
         if (bytesCount > 0) {
             return bytesCount;

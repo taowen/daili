@@ -8,6 +8,7 @@ import java.nio.channels.SelectionKey;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.TimeoutException;
 
 class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
 
@@ -32,7 +33,7 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
         }
     }
 
-    public void readBlocked(long deadline) throws Pausable {
+    public void readBlocked(long deadline) throws Pausable, TimeoutException {
         if (null != readTask) {
             throw new RuntimeException("multiple read blocked on same channel");
         }
@@ -42,11 +43,11 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
         Task.pause(this);
         if (readDeadline == -1) {
             readUnblocked();
-            throw new RuntimeException("timeout");
+            throw new TimeoutException();
         }
     }
 
-    public void writeBlocked(long deadline) throws Pausable {
+    public void writeBlocked(long deadline) throws Pausable, TimeoutException {
         if (null != writeTask) {
             throw new RuntimeException("multiple write blocked on same channel");
         }
@@ -56,11 +57,11 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
         Task.pause(this);
         if (writeDeadline == -1) {
             writeUnblocked();
-            throw new RuntimeException("timeout");
+            throw new TimeoutException();
         }
     }
 
-    public void acceptBlocked(long deadline) throws Pausable {
+    public void acceptBlocked(long deadline) throws Pausable, TimeoutException {
         if (null != acceptTask) {
             throw new RuntimeException("multiple accept blocked on same channel");
         }
@@ -70,7 +71,7 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
         Task.pause(this);
         if (acceptDeadline == -1) {
             acceptUnblocked();
-            throw new RuntimeException("timeout");
+            throw new TimeoutException();
         }
     }
 
