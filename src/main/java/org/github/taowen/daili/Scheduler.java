@@ -100,7 +100,17 @@ public class Scheduler {
     }
 
     protected int doSelect() throws IOException {
-        return selector.select();
+        SelectorBooking booking = selectorBookings.peek();
+        if (null == booking) {
+            return selector.select();
+        } else {
+            long delta = booking.getEarliestDeadline() - getCurrentTimeMillis();
+            if (delta > 0) {
+                return selector.select(delta);
+            } else {
+                return selector.selectNow();
+            }
+        }
     }
 
     private void executeReadyTasks() {

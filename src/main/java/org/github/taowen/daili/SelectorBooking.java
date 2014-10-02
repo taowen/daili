@@ -84,6 +84,14 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
                 tasks.add(taskUnblocked);
             }
         }
+        if (selectionKey.isConnectable()) {
+            Task taskUnblocked = connectUnblocked();
+            if (null == taskUnblocked) {
+                selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_CONNECT);
+            } else {
+                tasks.add(taskUnblocked);
+            }
+        }
         if (selectionKey.isReadable()) {
             Task taskUnblocked = readUnblocked();
             if (null == taskUnblocked) {
@@ -100,6 +108,9 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
                 tasks.add(taskUnblocked);
             }
         }
+        if (0 == selectionKey.interestOps()) {
+            selectionKey.cancel();
+        }
         return tasks;
     }
 
@@ -108,6 +119,14 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
         readDeadline = 0;
         updateDeadline();
         readTask = null;
+        return unblocked;
+    }
+
+    private Task connectUnblocked() {
+        Task unblocked = connectTask;
+        connectDeadline = 0;
+        updateDeadline();
+        connectTask = null;
         return unblocked;
     }
 
@@ -141,9 +160,12 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
         if (connectDeadline > 0 && connectDeadline < earliestDeadline) {
             earliestDeadline = connectDeadline;
         }
-        bookings.remove(this);
-        if (!bookings.offer(this)) {
-            throw new RuntimeException("update booking failed");
+        bookings.remove(this); // when timed out, the booking might be removed already
+        if (earliestDeadline != Long.MAX_VALUE) {
+            // add back in case read timed out, but write is still blocking
+            if (!bookings.offer(this)) {
+                throw new RuntimeException("update booking failed");
+            }
         }
     }
 
@@ -153,37 +175,53 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
 
     public void cancelDeadTasks(long currentTimeMillis) {
         if (null != readTask && currentTimeMillis > readDeadline) {
+            selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_READ);
             readDeadline = -1;
+            updateDeadline();
             readTask.resume();
             if (-1 == readDeadline) {
                 throw new RuntimeException("read deadline unhandled");
             }
         }
         if (null != writeTask && currentTimeMillis > writeDeadline) {
+            selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_WRITE);
             writeDeadline = -1;
+            updateDeadline();
             writeTask.resume();
             if (-1 == writeDeadline) {
                 throw new RuntimeException("write deadline unhandled");
             }
         }
         if (null != acceptTask && currentTimeMillis > acceptDeadline) {
+            selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_ACCEPT);
             acceptDeadline = -1;
+            updateDeadline();
             acceptTask.resume();
             if (-1 == acceptDeadline) {
                 throw new RuntimeException("accept deadline unhandled");
             }
         }
         if (null != connectTask && currentTimeMillis > connectDeadline) {
+            selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_CONNECT);
             connectDeadline = -1;
+            updateDeadline();
             connectTask.resume();
             if (-1 == connectDeadline) {
                 throw new AssertionError("connect deadline unhandled");
             }
         }
+        if (0 == selectionKey.interestOps()) {
+            selectionKey.cancel();
+        }
     }
 
     @Override
     public int compareTo(SelectorBooking that) {
-        return (int)(earliestDeadline - that.earliestDeadline);
+        if (that.earliestDeadline > this.earliestDeadline) {
+            return -1;
+        } else if (that.earliestDeadline < this.earliestDeadline) {
+            return 1;
+        }
+        return 0;
     }
 }

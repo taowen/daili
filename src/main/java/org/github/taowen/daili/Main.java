@@ -17,6 +17,7 @@ public class Main {
                 serverSocketChannel.socket().bind(new InetSocketAddress(9090));
                 serverSocketChannel.configureBlocking(false);
                 System.out.println("listening...");
+                scheduler.timeout = 5000;
                 SocketChannel socketChannel = scheduler.accept(serverSocketChannel);
                 socketChannel.configureBlocking(false);
                 ByteBuffer byteBuffer = ByteBuffer.allocateDirect(1024);
