@@ -75,6 +75,20 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
         }
     }
 
+    public void connectBlocked(long deadline) throws Pausable, TimeoutException {
+        if (null != connectTask) {
+            throw new RuntimeException("multiple connect blocked on same channel");
+        }
+        connectDeadline = deadline;
+        updateDeadline();
+        connectTask = Task.getCurrentTask();
+        Task.pause(this);
+        if (connectDeadline == -1) {
+            connectUnblocked();
+            throw new TimeoutException();
+        }
+    }
+
     public List<Task> ioUnblocked() {
         List<Task> tasks = new ArrayList<Task>();
         if (selectionKey.isAcceptable()) {

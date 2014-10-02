@@ -6,6 +6,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
 import java.util.*;
@@ -170,5 +172,24 @@ public class Scheduler {
             key.channel().close();
         }
         selector.close();
+    }
+
+    public void connect(SocketChannel socketChannel, SocketAddress remote) throws IOException, TimeoutException, Pausable {
+        if (socketChannel.connect(remote)) {
+            return;
+        }
+        SelectionKey selectionKey = socketChannel.keyFor(selector);
+        if (null == selectionKey) {
+            selectionKey = socketChannel.register(selector, SelectionKey.OP_CONNECT);
+            SelectorBooking booking = addSelectorBooking(selectionKey);
+            selectionKey.attach(booking);
+        } else {
+            selectionKey.interestOps(selectionKey.interestOps() | SelectionKey.OP_CONNECT);
+        }
+        SelectorBooking booking = (SelectorBooking) selectionKey.attachment();
+        booking.connectBlocked(getCurrentTimeMillis() + timeout);
+        if (!socketChannel.finishConnect()) {
+            throw new RuntimeException("still not connected, after connect op unblocked");
+        }
     }
 }

@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.channels.ServerSocketChannel;
+import java.util.concurrent.TimeoutException;
 
 public class TcpAcceptTest extends UsingFixture {
     public void testAcceptZero() throws IOException {
@@ -60,7 +61,7 @@ public class TcpAcceptTest extends UsingFixture {
                 scheduler.timeout = 1000;
                 try {
                     scheduler.accept(serverSocketChannel);
-                } catch (RuntimeException e) {
+                } catch (TimeoutException e) {
                     exit("timeout");
                 }
             }
@@ -84,7 +85,7 @@ public class TcpAcceptTest extends UsingFixture {
                 scheduler.timeout = 1000;
                 try {
                     scheduler.accept(serverSocketChannel);
-                } catch (RuntimeException e) {
+                } catch (TimeoutException e) {
                     exitResult = "timeout";
                 }
                 scheduler.timeout = 5000;
