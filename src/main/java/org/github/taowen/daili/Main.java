@@ -2,12 +2,9 @@ package org.github.taowen.daili;
 
 import kilim.Pausable;
 
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
-import java.util.concurrent.*;
+import java.nio.channels.DatagramChannel;
 
 public class Main {
     public static void main(String[] args) throws Exception {
@@ -15,30 +12,12 @@ public class Main {
         DailiTask task = new DailiTask(scheduler) {
             @Override
             public void execute() throws Pausable, Exception {
-                ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
-                serverSocketChannel.socket().bind(new InetSocketAddress(9090));
-                serverSocketChannel.configureBlocking(false);
-                System.out.println("listening...");
-                scheduler.timeout = 5000;
-                SocketChannel socketChannel = tryAccept(serverSocketChannel);
-                socketChannel.configureBlocking(false);
-                ByteBuffer byteBuffer = ByteBuffer.allocateDirect(1024);
-                while (scheduler.read(socketChannel, byteBuffer) > 0) {
-                    byteBuffer.flip();
-                    scheduler.write(socketChannel, byteBuffer);
-                    byteBuffer.clear();
-                }
-            }
-
-            private SocketChannel tryAccept(ServerSocketChannel serverSocketChannel) throws IOException, Pausable {
-                while(true) {
-                    try {
-                        return scheduler.accept(serverSocketChannel);
-                    } catch (TimeoutException e) {
-                        System.out.println("time out, try again");
-                        continue;
-                    }
-                }
+                DatagramChannel channel = DatagramChannel.open();
+                channel.configureBlocking(false);
+                channel.socket().bind(new InetSocketAddress(9090));
+                ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
+                scheduler.receive(channel, buffer);
+                System.out.println(buffer);
             }
         };
         scheduler.callSoon(task);

@@ -136,9 +136,14 @@ public class Scheduler {
         if (bytesCount > 0) {
             return bytesCount;
         }
-        SelectionKey selectionKey = socketChannel.keyFor(selector);
+        readBlocked(socketChannel);
+        return socketChannel.read(byteBuffer);
+    }
+
+    private void readBlocked(SelectableChannel channel) throws ClosedChannelException, Pausable, TimeoutException {
+        SelectionKey selectionKey = channel.keyFor(selector);
         if (null == selectionKey) {
-            selectionKey = socketChannel.register(selector, SelectionKey.OP_READ);
+            selectionKey = channel.register(selector, SelectionKey.OP_READ);
             SelectorBooking booking = addSelectorBooking(selectionKey);
             selectionKey.attach(booking);
         } else {
@@ -146,7 +151,6 @@ public class Scheduler {
         }
         SelectorBooking booking = (SelectorBooking) selectionKey.attachment();
         booking.readBlocked(getCurrentTimeMillis() + timeout);
-        return socketChannel.read(byteBuffer);
     }
 
     public int write(SocketChannel socketChannel, ByteBuffer byteBuffer) throws IOException, Pausable, TimeoutException {
@@ -191,5 +195,14 @@ public class Scheduler {
         if (!socketChannel.finishConnect()) {
             throw new RuntimeException("still not connected, after connect op unblocked");
         }
+    }
+
+    public SocketAddress receive(DatagramChannel datagramChannel, ByteBuffer byteBuffer) throws IOException, TimeoutException, Pausable {
+        SocketAddress clientAddress = datagramChannel.receive(byteBuffer);
+        if (null != clientAddress) {
+            return clientAddress;
+        }
+        readBlocked(datagramChannel);
+        return datagramChannel.receive(byteBuffer);
     }
 }

@@ -31,6 +31,7 @@ test {
 }
 
 dependencies {
+    compile 'org.javolution:javolution:6.+'
     compile 'org.slf4j:slf4j-api:1.7.+'
     compile 'org.github.taowen:kilim:1.0'
     kilim 'org.github.taowen:kilim:1.0'
