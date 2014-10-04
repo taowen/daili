@@ -59,7 +59,22 @@ public class Scheduler {
 
     public void loop() {
         while (loopOnce()) {
+            if (!hasPendingTask()) {
+                LOGGER.error("no more task to loop for");
+                return;
+            }
         }
+    }
+
+    private boolean hasPendingTask() {
+        if (!readyTasks.isEmpty()) {
+            return true;
+        }
+        SelectorBooking booking = selectorBookings.peek();
+        if (booking != null && booking.hasPendingTask()) {
+            return true;
+        }
+        return false;
     }
 
     boolean loopOnce() {

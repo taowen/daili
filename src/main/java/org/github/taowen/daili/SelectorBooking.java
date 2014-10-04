@@ -243,4 +243,8 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
         }
         return 0;
     }
+
+    public boolean hasPendingTask() {
+        return Long.MAX_VALUE != earliestDeadline;
+    }
 }
