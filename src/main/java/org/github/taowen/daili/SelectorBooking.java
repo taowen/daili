@@ -16,13 +16,13 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
     private final SelectionKey selectionKey;
 
     private long earliestDeadline = Long.MAX_VALUE;
-    private long readDeadline;
+    private long readDeadline = Long.MAX_VALUE;
     private Task readTask;
-    private long writeDeadline;
+    private long writeDeadline = Long.MAX_VALUE;
     private Task writeTask;
-    private long acceptDeadline;
+    private long acceptDeadline = Long.MAX_VALUE;
     private Task acceptTask;
-    private long connectDeadline;
+    private long connectDeadline = Long.MAX_VALUE;
     private Task connectTask;
 
     public SelectorBooking(Queue<SelectorBooking> bookings, SelectionKey selectionKey) {
@@ -131,7 +131,7 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
 
     private Task readUnblocked() {
         Task unblocked = readTask;
-        readDeadline = 0;
+        readDeadline = Long.MAX_VALUE;
         updateDeadline();
         readTask = null;
         return unblocked;
@@ -139,7 +139,7 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
 
     private Task connectUnblocked() {
         Task unblocked = connectTask;
-        connectDeadline = 0;
+        connectDeadline = Long.MAX_VALUE;
         updateDeadline();
         connectTask = null;
         return unblocked;
@@ -147,7 +147,7 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
 
     private Task acceptUnblocked() {
         Task unblocked = acceptTask;
-        acceptDeadline = 0;
+        acceptDeadline = Long.MAX_VALUE;
         updateDeadline();
         acceptTask = null;
         return unblocked;
@@ -155,13 +155,14 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
 
     private Task writeUnblocked() {
         Task unblocked = writeTask;
-        writeDeadline = 0;
+        writeDeadline = Long.MAX_VALUE;
         updateDeadline();
         writeTask = null;
         return unblocked;
     }
 
     public void updateDeadline() {
+        long originalValue = earliestDeadline;
         earliestDeadline = Long.MAX_VALUE;
         if (readDeadline > 0 && readDeadline < earliestDeadline) {
             earliestDeadline = readDeadline;
@@ -175,11 +176,13 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
         if (connectDeadline > 0 && connectDeadline < earliestDeadline) {
             earliestDeadline = connectDeadline;
         }
-        bookings.remove(this); // when timed out, the booking might be removed already
-        if (earliestDeadline != Long.MAX_VALUE) {
-            // add back in case read timed out, but write is still blocking
-            if (!bookings.offer(this)) {
-                throw new RuntimeException("update booking failed");
+        if (originalValue != earliestDeadline) {
+            bookings.remove(this); // when timed out, the booking might be removed already
+            if (earliestDeadline != Long.MAX_VALUE) {
+                // add back in case read timed out, but write is still blocking
+                if (!bookings.offer(this)) {
+                    throw new RuntimeException("update booking failed");
+                }
             }
         }
     }
@@ -189,7 +192,7 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
     }
 
     public void cancelDeadTasks(long currentTimeMillis) {
-        if (null != readTask && currentTimeMillis > readDeadline) {
+        if (readDeadline > 0 && currentTimeMillis > readDeadline) {
             selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_READ);
             readDeadline = -1;
             updateDeadline();
@@ -198,7 +201,7 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
                 throw new RuntimeException("read deadline unhandled");
             }
         }
-        if (null != writeTask && currentTimeMillis > writeDeadline) {
+        if (writeDeadline > 0 && currentTimeMillis > writeDeadline) {
             selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_WRITE);
             writeDeadline = -1;
             updateDeadline();
@@ -207,7 +210,7 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
                 throw new RuntimeException("write deadline unhandled");
             }
         }
-        if (null != acceptTask && currentTimeMillis > acceptDeadline) {
+        if (acceptDeadline > 0 && currentTimeMillis > acceptDeadline) {
             selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_ACCEPT);
             acceptDeadline = -1;
             updateDeadline();
@@ -216,7 +219,7 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
                 throw new RuntimeException("accept deadline unhandled");
             }
         }
-        if (null != connectTask && currentTimeMillis > connectDeadline) {
+        if (connectDeadline > 0 && currentTimeMillis > connectDeadline) {
             selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_CONNECT);
             connectDeadline = -1;
             updateDeadline();
@@ -232,9 +235,10 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
 
     @Override
     public int compareTo(SelectorBooking that) {
-        if (that.earliestDeadline > this.earliestDeadline) {
+        long delta = that.earliestDeadline - this.earliestDeadline;
+        if (delta > 0) {
             return -1;
-        } else if (that.earliestDeadline < this.earliestDeadline) {
+        } else if (delta < 0) {
             return 1;
         }
         return 0;

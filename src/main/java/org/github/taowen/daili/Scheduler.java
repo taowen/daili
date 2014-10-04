@@ -173,7 +173,11 @@ public class Scheduler {
 
     public void close() throws IOException {
         for (SelectionKey key : selector.keys()) {
-            key.channel().close();
+            try {
+                key.channel().close();
+            } catch (Exception e) {
+                LOGGER.error("failed to close channel", e);
+            }
         }
         selector.close();
     }
