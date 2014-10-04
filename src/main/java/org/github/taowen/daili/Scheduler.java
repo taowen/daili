@@ -23,7 +23,9 @@ public class Scheduler {
     {
         try {
             selector = Selector.open();
-            LOGGER.info("selector opened");
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("selector opened");
+            }
         } catch (IOException e) {
             LOGGER.error("failed to open selector", e);
         }
@@ -60,7 +62,7 @@ public class Scheduler {
     public void loop() {
         while (loopOnce()) {
             if (!hasPendingTask()) {
-                LOGGER.error("no more task to loop for");
+                LOGGER.error("no more task to loop for, quit now...");
                 return;
             }
         }

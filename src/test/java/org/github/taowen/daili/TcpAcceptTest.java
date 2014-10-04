@@ -9,7 +9,7 @@ import java.nio.channels.ServerSocketChannel;
 import java.util.concurrent.TimeoutException;
 
 public class TcpAcceptTest extends UsingFixture {
-    public void testAcceptZero() throws IOException {
+    public void testIncomplete() throws IOException {
         Scheduler scheduler = new TestScheduler(this);
         DailiTask task = new DailiTask(scheduler) {
             @Override
@@ -26,7 +26,8 @@ public class TcpAcceptTest extends UsingFixture {
         scheduler.loopOnce();
         assertFalse("accepted".equals(task.exitResult));
     }
-    public void testAcceptOne() throws IOException {
+
+    public void testSuccess() throws IOException {
         Scheduler scheduler = new TestScheduler(this);
         DailiTask task = new DailiTask(scheduler) {
             @Override
@@ -48,7 +49,8 @@ public class TcpAcceptTest extends UsingFixture {
         scheduler.loopOnce();
         assertEquals("accepted", task.exitResult);
     }
-    public void testAcceptTimeout() throws IOException {
+
+    public void testTimeout() throws IOException {
         TestScheduler scheduler = new TestScheduler(this);
         scheduler.fixedCurrentTimeMillis = System.currentTimeMillis();
         DailiTask task = new DailiTask(scheduler) {
@@ -72,7 +74,8 @@ public class TcpAcceptTest extends UsingFixture {
         scheduler.loopOnce();
         assertEquals("timeout", task.exitResult);
     }
-    public void testAcceptTwo() throws IOException {
+
+    public void testOneTimeoutOneSuccess() throws IOException {
         TestScheduler scheduler = new TestScheduler(this);
         scheduler.fixedCurrentTimeMillis = System.currentTimeMillis();
         DailiTask task1 = new DailiTask(scheduler) {
