@@ -5,11 +5,8 @@ import kilim.Pausable;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
 
 public class UdpReceiveTest extends UsingFixture {
     public void test() throws Exception {
@@ -20,10 +17,14 @@ public class UdpReceiveTest extends UsingFixture {
                 DatagramChannel channel = DatagramChannel.open();
                 channel.configureBlocking(false);
                 channel.socket().bind(new InetSocketAddress(9090));
-                ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
-                scheduler.receive(channel, buffer);
-                ByteBuffer expected = ByteBuffer.wrap(new byte[]{1, 2, 3, 4});
-                exit(buffer.flip().equals(expected));
+                try {
+                    ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
+                    scheduler.receive(channel, buffer);
+                    ByteBuffer expected = ByteBuffer.wrap(new byte[]{1, 2, 3, 4});
+                    exit(buffer.flip().equals(expected));
+                } finally {
+                    channel.close();
+                }
             }
         };
         scheduler.callSoon(task);
