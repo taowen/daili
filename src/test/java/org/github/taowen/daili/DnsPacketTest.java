@@ -8,6 +8,7 @@ import org.junit.runners.JUnit4;
 import org.xbill.DNS.*;
 
 import java.io.EOFException;
+import java.net.Inet4Address;
 import java.nio.ByteBuffer;
 
 import static org.hamcrest.CoreMatchers.is;
@@ -43,7 +44,7 @@ public class DnsPacketTest extends UsingFixture {
         assertThat(header.getCount(Section.ADDITIONAL),
                 is(dnsPacket.readAdditionalRecordsCount()));
         exception.expect(EOFException.class);
-        dnsPacket.enterQuestionRecord();
+        dnsPacket.startRecord();
     }
 
     @Test
@@ -54,7 +55,34 @@ public class DnsPacketTest extends UsingFixture {
         DnsPacket dnsPacket = new DnsPacket();
         dnsPacket.setByteBuffer(ByteBuffer.wrap(bytes));
         dnsPacket.skipHeader();
-        dnsPacket.enterQuestionRecord();
-        dnsPacket.readName();
+        dnsPacket.startRecord();
+        assertEquals("www.google.com.", dnsPacket.readRecordName());
+        assertEquals(Type.A, dnsPacket.readRecordType());
+        assertEquals(DClass.IN, dnsPacket.readRecordDClass());
+        dnsPacket.endRecord();
+    }
+
+    @Test
+    public void oneA() throws Exception {
+        Record q = Record.newRecord(new Name("www.google.com."), Type.A, DClass.IN);
+        Message message = new Message();
+        message.addRecord(q, Section.QUESTION);
+        message.addRecord(new ARecord(new Name("www.google.com."), DClass.IN, 60, Inet4Address.getByName("1.1.1.1")), Section.ANSWER);
+        byte[] bytes = message.toWire();
+        DnsPacket dnsPacket = new DnsPacket();
+        dnsPacket.setByteBuffer(ByteBuffer.wrap(bytes));
+        dnsPacket.skipHeader();
+        dnsPacket.startRecord();
+        assertEquals("www.google.com.", dnsPacket.readRecordName());
+        assertEquals(Type.A, dnsPacket.readRecordType());
+        assertEquals(DClass.IN, dnsPacket.readRecordDClass());
+        dnsPacket.endRecord();
+        dnsPacket.startRecord();
+        assertEquals("www.google.com.", dnsPacket.readRecordName());
+        assertEquals(Type.A, dnsPacket.readRecordType());
+        assertEquals(DClass.IN, dnsPacket.readRecordDClass());
+        assertEquals(60, dnsPacket.readRecordTTL());
+        assertEquals(4, dnsPacket.readRecordDataLength());
+        dnsPacket.endRecord();
     }
 }

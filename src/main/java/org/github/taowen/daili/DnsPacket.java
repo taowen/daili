@@ -4,6 +4,7 @@ import kilim.Pausable;
 import kilim.Task;
 
 import java.io.EOFException;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashSet;
 import java.util.Set;
@@ -11,7 +12,7 @@ import java.util.Set;
 public class DnsPacket extends Task {
 
     public static enum Field {
-        OPCODE, FLAG_QR, FLAG_AA, FLAG_TC, QUESTION_RECORDS_COUNT, ANSWER_RECORDS_COUNT, AUTHORITY_RECORDS_COUNT, ADDITIONAL_RECORDS_COUNT, START_FLAGS, END_FLGAS, SKIP_HEADER, START_QUESTION_RECORD, RECORD_NAME, ID
+        OPCODE, FLAG_QR, FLAG_AA, FLAG_TC, QUESTION_RECORDS_COUNT, ANSWER_RECORDS_COUNT, AUTHORITY_RECORDS_COUNT, ADDITIONAL_RECORDS_COUNT, START_FLAGS, END_FLGAS, SKIP_HEADER, START_QUESTION_RECORD, RECORD_NAME, RECORD_TYPE, RECORD_DCLASS, END_QUESTION_RECORD, RECORD_DATA_LENGTH, RECORD_TTL, ID
     }
     public static Set<Field> FLAG_FIELDS = new HashSet<Field>(){{
         add(Field.OPCODE);
@@ -22,6 +23,7 @@ public class DnsPacket extends Task {
 
     private ByteBuffer byteBuffer;
     private Field readingField;
+    private long fieldLongValue;
     private int fieldIntValue;
     private String fieldStringValue;
     private boolean fieldBooleanValue;
@@ -29,6 +31,111 @@ public class DnsPacket extends Task {
 
     @Override
     public void execute() throws Pausable, Exception {
+        int questionRecordsCount = doReadHeader();
+        for (int i = 0; i < questionRecordsCount; i++) {
+            doReadRecord(true);
+        }
+        while(true) {
+            doReadRecord(false);
+        }
+    }
+
+    private void doReadRecord(boolean isQuestionRecord) throws Pausable, IOException {
+        assert Field.START_QUESTION_RECORD == readingField;
+        pass();
+        assert Field.RECORD_NAME == readingField;
+        doReadRecordName();
+        assert Field.RECORD_TYPE == readingField;
+        pass(byteBuffer.getShort() & 0xFFFF);
+        assert Field.RECORD_DCLASS == readingField;
+        pass(byteBuffer.getShort() & 0xFFFF);
+        if (!isQuestionRecord) {
+            assert Field.RECORD_TTL == readingField;
+            pass(byteBuffer.getInt() & 0xFFFFFFFFL);
+            assert Field.RECORD_DATA_LENGTH == readingField;
+            pass(byteBuffer.getShort() & 0xFFFF);
+        }
+        assert Field.END_QUESTION_RECORD == readingField;
+        pass();
+    }
+
+    private void doReadRecordName() throws IOException, Pausable {
+        StringBuffer buf = new StringBuffer();
+        int savePoint = -1;
+        int first = byteBuffer.position();
+        while (true)
+        {
+            int len = byteBuffer.get();
+            if (len == 0)
+            {
+                break;
+            }
+            switch (len & 0xC0)
+            {
+                case 0x00:
+                    //buf.append("[" + off + "]");
+                    readUTF(buf, len);
+                    buf.append('.');
+                    break;
+                case 0xC0:
+                    //buf.append("<" + (off - 1) + ">");
+                    if (savePoint < 0) {
+                        savePoint = byteBuffer.position() + 1;
+                    }
+                    int pointer = ((len & 0x3F) << 8) | byteBuffer.get();
+                    if (pointer >= first)
+                    {
+                        throw new IOException("bad domain name: possible circular name detected");
+                    }
+                    byteBuffer.position(pointer);
+                    first = byteBuffer.position();
+                    break;
+                default:
+                    throw new IOException("bad domain name: '" + buf + "' at " + byteBuffer.position());
+            }
+        }
+        if (savePoint >= 0) {
+            byteBuffer.position(savePoint);
+        }
+        pass(buf.toString());
+    }
+
+    private void readUTF(StringBuffer buf, int len)
+    {
+        for (int end = byteBuffer.position() + len; byteBuffer.position() < end;)
+        {
+            int ch = byteBuffer.get();
+            switch (ch >> 4)
+            {
+                case 0:
+                case 1:
+                case 2:
+                case 3:
+                case 4:
+                case 5:
+                case 6:
+                case 7:
+                    // 0xxxxxxx
+                    break;
+                case 12:
+                case 13:
+                    // 110x xxxx   10xx xxxx
+                    ch = ((ch & 0x1F) << 6) | (byteBuffer.get() & 0x3F);
+                    break;
+                case 14:
+                    // 1110 xxxx  10xx xxxx  10xx xxxx
+                    ch = ((ch & 0x0f) << 12) | ((byteBuffer.get() & 0x3F) << 6) | (byteBuffer.get() & 0x3F);
+                    break;
+                default:
+                    // 10xx xxxx,  1111 xxxx
+                    ch = ((ch & 0x3F) << 4) | (byteBuffer.get() & 0x0f);
+                    break;
+            }
+            buf.append((char) ch);
+        }
+    }
+
+    private int doReadHeader() throws Pausable {
         assert Field.SKIP_HEADER == readingField || Field.ID == readingField;
         if (Field.SKIP_HEADER == readingField) {
             skipping = true;
@@ -36,7 +143,8 @@ public class DnsPacket extends Task {
         pass(byteBuffer.getShort() & 0xFFFF);
         readFlags();
         assert Field.SKIP_HEADER == readingField || Field.QUESTION_RECORDS_COUNT == readingField;
-        pass(byteBuffer.getShort() & 0xFFFF);
+        int questionRecordsCount = byteBuffer.getShort() & 0xFFFF;
+        pass(questionRecordsCount);
         assert Field.SKIP_HEADER == readingField || Field.ANSWER_RECORDS_COUNT == readingField;
         pass(byteBuffer.getShort() & 0xFFFF);
         assert Field.SKIP_HEADER == readingField || Field.AUTHORITY_RECORDS_COUNT == readingField;
@@ -47,42 +155,7 @@ public class DnsPacket extends Task {
             skipping = false;
             pass();
         }
-        assert Field.START_QUESTION_RECORD == readingField;
-        pass();
-        assert Field.RECORD_NAME == readingField;
-        System.out.println(byteBuffer.get());
-//        while (true)
-//        {
-//            int len = byteBuffer.get();
-//            if (len == 0)
-//            {
-//                break;
-//            }
-//            switch (len & 0xC0)
-//            {
-//                case 0x00:
-//                    //buf.append("[" + off + "]");
-//                    readUTF(buf, off, len);
-//                    off += len;
-//                    buf.append('.');
-//                    break;
-//                case 0xC0:
-//                    //buf.append("<" + (off - 1) + ">");
-//                    if (next < 0)
-//                    {
-//                        next = off + 1;
-//                    }
-//                    off = ((len & 0x3F) << 8) | get(off++);
-//                    if (off >= first)
-//                    {
-//                        throw new IOException("bad domain name: possible circular name detected");
-//                    }
-//                    first = off;
-//                    break;
-//                default:
-//                    throw new IOException("bad domain name: '" + buf + "' at " + off);
-//            }
-//        }
+        return questionRecordsCount;
     }
 
     private void readFlags() throws Pausable {
@@ -119,6 +192,13 @@ public class DnsPacket extends Task {
         }
     }
 
+    private void pass(long val) throws Pausable {
+        fieldLongValue = val;
+        if (!skipping) {
+            yield();
+        }
+    }
+
     private void pass(int val) throws Pausable {
         fieldIntValue = val;
         if (!skipping) {
@@ -128,6 +208,13 @@ public class DnsPacket extends Task {
 
     private void pass(boolean val) throws Pausable {
         fieldBooleanValue = val;
+        if (!skipping) {
+            yield();
+        }
+    }
+
+    private void pass(String val) throws Pausable {
+        fieldStringValue = val;
         if (!skipping) {
             yield();
         }
@@ -210,16 +297,45 @@ public class DnsPacket extends Task {
         return fieldIntValue;
     }
 
-    public void enterQuestionRecord() throws EOFException {
+    public void startRecord() throws EOFException {
         checkEOF();
         readingField = Field.START_QUESTION_RECORD;
         resume();
     }
 
-    public String readName() {
+    public void endRecord() throws EOFException {
+        readingField = Field.END_QUESTION_RECORD;
+        resume();
+    }
+
+    public String readRecordName() {
         readingField = Field.RECORD_NAME;
         resume();
         return fieldStringValue;
+    }
+
+    public int readRecordType() {
+        readingField = Field.RECORD_TYPE;
+        resume();
+        return fieldIntValue;
+    }
+
+    public int readRecordDClass() {
+        readingField = Field.RECORD_DCLASS;
+        resume();
+        return fieldIntValue;
+    }
+
+    public long readRecordTTL() {
+        readingField = Field.RECORD_TTL;
+        resume();
+        return fieldLongValue;
+    }
+
+    public int readRecordDataLength() {
+        readingField = Field.RECORD_DATA_LENGTH;
+        resume();
+        return fieldIntValue;
     }
 
     private void checkEOF() throws EOFException {
