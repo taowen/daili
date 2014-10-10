@@ -18,15 +18,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 @RunWith(JUnit4.class)
 public class DnsPacketTest extends UsingFixture {
 
-    @Rule
-    public ExpectedException exception = ExpectedException.none();
-
     @Test
     public void emptyMessage() throws EOFException {
         Message message = new Message();
         Header header = message.getHeader();
         byte[] bytes = message.toWire();
-        DnsPacket dnsPacket = new DnsPacket();
+        DnsPacketReader dnsPacket = new DnsPacketReader();
         dnsPacket.setByteBuffer(ByteBuffer.wrap(bytes));
         assertEquals(header.getID(), dnsPacket.readId());
         dnsPacket.startFlags();
@@ -44,8 +41,6 @@ public class DnsPacketTest extends UsingFixture {
                 is(dnsPacket.readAuthorityRecordsCount()));
         assertThat(header.getCount(Section.ADDITIONAL),
                 is(dnsPacket.readAdditionalRecordsCount()));
-        exception.expect(EOFException.class);
-        dnsPacket.startRecord(); // no record really
     }
 
     @Test
@@ -53,7 +48,7 @@ public class DnsPacketTest extends UsingFixture {
         Record record = Record.newRecord(new Name("www.google.com."), Type.A, DClass.IN);
         Message message = Message.newQuery(record);
         byte[] bytes = message.toWire();
-        DnsPacket dnsPacket = new DnsPacket();
+        DnsPacketReader dnsPacket = new DnsPacketReader();
         dnsPacket.setByteBuffer(ByteBuffer.wrap(bytes));
         dnsPacket.skipHeader();
         dnsPacket.startRecord();
@@ -70,7 +65,7 @@ public class DnsPacketTest extends UsingFixture {
         message.addRecord(q, Section.QUESTION);
         message.addRecord(new ARecord(new Name("www.google.com."), DClass.IN, 60, Inet4Address.getByName("1.2.3.4")), Section.ANSWER);
         byte[] bytes = message.toWire();
-        DnsPacket dnsPacket = new DnsPacket();
+        DnsPacketReader dnsPacket = new DnsPacketReader();
         dnsPacket.setByteBuffer(ByteBuffer.wrap(bytes));
         dnsPacket.skipHeader();
         dnsPacket.startRecord();
@@ -95,7 +90,7 @@ public class DnsPacketTest extends UsingFixture {
         message.addRecord(q, Section.QUESTION);
         message.addRecord(new ARecord(new Name("www.google.com."), DClass.IN, 60, Inet4Address.getByName("1.2.3.4")), Section.ANSWER);
         byte[] bytes = message.toWire();
-        DnsPacket dnsPacket = new DnsPacket();
+        DnsPacketReader dnsPacket = new DnsPacketReader();
         dnsPacket.setByteBuffer(ByteBuffer.wrap(bytes));
         dnsPacket.skipHeader();
         dnsPacket.startRecord();

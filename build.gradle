@@ -31,8 +31,7 @@ test {
 }
 
 dependencies {
-    compile 'dnsjava:dnsjava:2.1.6'
-    compile 'javolution:javolution:5.+'
+    testCompile 'dnsjava:dnsjava:2.1.6'
     compile 'org.slf4j:slf4j-api:1.7.+'
     compile 'org.github.taowen:kilim:1.0'
     kilim 'org.github.taowen:kilim:1.0'
