@@ -85,7 +85,7 @@ public class DnsPacketWriter extends DnsPacketProcessor {
     public void writeId(int id) {
         currentField = Field.ID;
         fieldIntValue = id;
-        resume();
+        run();
     }
 
     public void startFlags() {
@@ -101,26 +101,26 @@ public class DnsPacketWriter extends DnsPacketProcessor {
     public void writeQuestionRecordsCount(int count) {
         currentField = Field.QUESTION_RECORDS_COUNT;
         fieldIntValue = count;
-        resume();
+        run();
     }
 
     public void writeAnswerRecordsCount(int count) {
         currentField = Field.ANSWER_RECORDS_COUNT;
         fieldIntValue = count;
-        resume();
+        run();
 
     }
 
     public void writeAuthorityRecordsCount(int count) {
         currentField = Field.AUTHORITY_RECORDS_COUNT;
         fieldIntValue = count;
-        resume();
+        run();
 
     }
 
     public void writeAdditionalRecordsCount(int count) {
         currentField = Field.ADDITIONAL_RECORDS_COUNT;
         fieldIntValue = count;
-        resume();
+        run();
     }
 }

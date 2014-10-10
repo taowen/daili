@@ -12,7 +12,7 @@ public class TaskTest extends TestCase {
                 exit("hello");
             }
         };
-        task.resume();
+        task.run();
         assertEquals("hello", task.exitResult);
     }
 
@@ -25,9 +25,9 @@ public class TaskTest extends TestCase {
                 exitResult = "2";
             }
         };
-        task.resume();
+        task.run();
         assertEquals("1", task.exitResult);
-        task.resume();
+        task.run();
         assertEquals("2", task.exitResult);
     }
 }

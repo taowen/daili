@@ -11,16 +11,17 @@ import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeoutException;
 
 public class Scheduler {
     private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
     protected Selector selector;
-    private Queue<Task> readyTasks = new LinkedList<Task>();
-    private Queue<SelectorBooking> selectorBookings = new PriorityQueue<SelectorBooking>();
-    public int timeout = 1000 * 60;
+    Queue<SelectorBooking> selectorBookings = new PriorityQueue<SelectorBooking>();
+    // readyTasks is the only entrance to the io scheduler thread
+    private Queue<Task> readyTasks = new ConcurrentLinkedQueue<Task>();
 
-    {
+    public Scheduler() {
         try {
             selector = Selector.open();
             if (LOGGER.isDebugEnabled()) {
@@ -29,24 +30,6 @@ public class Scheduler {
         } catch (IOException e) {
             LOGGER.error("failed to open selector", e);
         }
-    }
-
-    public SocketChannel accept(ServerSocketChannel serverSocketChannel) throws IOException, Pausable, TimeoutException {
-        SocketChannel socketChannel = serverSocketChannel.accept();
-        if (null != socketChannel) {
-            return socketChannel;
-        }
-        SelectionKey selectionKey = serverSocketChannel.keyFor(selector);
-        if (null == selectionKey) {
-            selectionKey = serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
-            SelectorBooking booking = addSelectorBooking(selectionKey);
-            selectionKey.attach(booking);
-        } else {
-            selectionKey.interestOps(selectionKey.interestOps() | SelectionKey.OP_ACCEPT);
-        }
-        SelectorBooking booking = (SelectorBooking) selectionKey.attachment();
-        booking.acceptBlocked(getCurrentTimeMillis() + timeout);
-        return serverSocketChannel.accept();
     }
 
     private SelectorBooking addSelectorBooking(SelectionKey selectionKey) {
@@ -85,9 +68,13 @@ public class Scheduler {
             doSelect();
             Iterator<SelectionKey> iterator = selector.selectedKeys().iterator();
             ioUnblocked(iterator);
+            boolean hasCancelled = false;
             while (hasDeadSelectorBooking()) {
                 SelectorBooking booking = selectorBookings.poll();
-                booking.cancelDeadTasks(getCurrentTimeMillis());
+                hasCancelled |= booking.cancelDeadTasks(getCurrentTimeMillis());
+            }
+            if (hasCancelled) {
+                selector.selectNow(); // make the cancel happen
             }
             return true;
         } catch (Exception e) {
@@ -142,22 +129,50 @@ public class Scheduler {
 
     private void executeTask(Task task) {
         try {
-            task.resume();
+            task.run();
         } catch (Exception e) {
             LOGGER.error("failed to execute task: " + task, e);
         }
     }
 
-    public int read(SocketChannel socketChannel, ByteBuffer byteBuffer) throws IOException, Pausable, TimeoutException {
+    private void switchToMyThread() throws Pausable {
+        callSoon(Task.getCurrentTask());
+        selector.wakeup();
+        Task.yield();
+        // should run in io scheduler thread now
+    }
+
+    public SocketChannel accept(ServerSocketChannel serverSocketChannel, int timeout) throws IOException, Pausable, TimeoutException {
+        SocketChannel socketChannel = serverSocketChannel.accept();
+        if (null != socketChannel) {
+            return socketChannel;
+        }
+        switchToMyThread();
+        SelectionKey selectionKey = serverSocketChannel.keyFor(selector);
+        if (null == selectionKey) {
+            selectionKey = serverSocketChannel.register(selector, 0);
+            selectionKey.interestOps(SelectionKey.OP_ACCEPT);
+            SelectorBooking booking = addSelectorBooking(selectionKey);
+            selectionKey.attach(booking);
+        } else {
+            selectionKey.interestOps(selectionKey.interestOps() | SelectionKey.OP_ACCEPT);
+        }
+        SelectorBooking booking = (SelectorBooking) selectionKey.attachment();
+        booking.acceptBlocked(getCurrentTimeMillis() + timeout);
+        return serverSocketChannel.accept();
+    }
+
+    public int read(SocketChannel socketChannel, ByteBuffer byteBuffer, int timeout) throws IOException, Pausable, TimeoutException {
         int bytesCount = socketChannel.read(byteBuffer);
         if (bytesCount > 0) {
             return bytesCount;
         }
-        readBlocked(socketChannel);
+        readBlocked(socketChannel, timeout);
         return socketChannel.read(byteBuffer);
     }
 
-    private void readBlocked(SelectableChannel channel) throws ClosedChannelException, Pausable, TimeoutException {
+    private void readBlocked(SelectableChannel channel, int timeout) throws ClosedChannelException, Pausable, TimeoutException {
+        switchToMyThread();
         SelectionKey selectionKey = channel.keyFor(selector);
         if (null == selectionKey) {
             selectionKey = channel.register(selector, SelectionKey.OP_READ);
@@ -170,16 +185,17 @@ public class Scheduler {
         booking.readBlocked(getCurrentTimeMillis() + timeout);
     }
 
-    public int write(SocketChannel socketChannel, ByteBuffer byteBuffer) throws IOException, Pausable, TimeoutException {
+    public int write(SocketChannel socketChannel, ByteBuffer byteBuffer, int timeout) throws IOException, Pausable, TimeoutException {
         int bytesCount = socketChannel.write(byteBuffer);
         if (bytesCount > 0) {
             return bytesCount;
         }
-        writeBlocked(socketChannel);
+        writeBlocked(socketChannel, timeout);
         return socketChannel.write(byteBuffer);
     }
 
-    private void writeBlocked(SelectableChannel channel) throws ClosedChannelException, Pausable, TimeoutException {
+    private void writeBlocked(SelectableChannel channel, int timeout) throws ClosedChannelException, Pausable, TimeoutException {
+        switchToMyThread();
         SelectionKey selectionKey = channel.keyFor(selector);
         if (null == selectionKey) {
             selectionKey = channel.register(selector, SelectionKey.OP_WRITE);
@@ -193,20 +209,14 @@ public class Scheduler {
     }
 
     public void close() throws IOException {
-        for (SelectionKey key : selector.keys()) {
-            try {
-                key.channel().close();
-            } catch (Exception e) {
-                LOGGER.error("failed to close channel", e);
-            }
-        }
         selector.close();
     }
 
-    public void connect(SocketChannel socketChannel, SocketAddress remote) throws IOException, TimeoutException, Pausable {
+    public void connect(SocketChannel socketChannel, SocketAddress remote, int timeout) throws IOException, TimeoutException, Pausable {
         if (socketChannel.connect(remote)) {
             return;
         }
+        switchToMyThread();
         SelectionKey selectionKey = socketChannel.keyFor(selector);
         if (null == selectionKey) {
             selectionKey = socketChannel.register(selector, SelectionKey.OP_CONNECT);
@@ -222,21 +232,21 @@ public class Scheduler {
         }
     }
 
-    public SocketAddress receive(DatagramChannel datagramChannel, ByteBuffer byteBuffer) throws IOException, TimeoutException, Pausable {
+    public SocketAddress receive(DatagramChannel datagramChannel, ByteBuffer byteBuffer, int timeout) throws IOException, TimeoutException, Pausable {
         SocketAddress clientAddress = datagramChannel.receive(byteBuffer);
         if (null != clientAddress) {
             return clientAddress;
         }
-        readBlocked(datagramChannel);
+        readBlocked(datagramChannel, timeout);
         return datagramChannel.receive(byteBuffer);
     }
 
-    public int send(DatagramChannel channel, ByteBuffer byteBuffer, InetSocketAddress target) throws IOException, TimeoutException, Pausable {
+    public int send(DatagramChannel channel, ByteBuffer byteBuffer, InetSocketAddress target, int timeout) throws IOException, TimeoutException, Pausable {
         int bytesCount = channel.send(byteBuffer, target);
         if (bytesCount > 0) {
             return bytesCount;
         }
-        writeBlocked(channel);
+        writeBlocked(channel, timeout);
         return channel.send(byteBuffer, target);
     }
 }

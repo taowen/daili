@@ -26,91 +26,91 @@ public class DnsPacketReader extends DnsPacketProcessor {
 
     public int readId() {
         currentField = Field.ID;
-        resume();
+        run();
         return fieldIntValue;
     }
 
     public int readOpcode() {
         currentField = Field.OPCODE;
-        resume();
+        run();
         return fieldIntValue;
     }
 
     public boolean readFlagQR() {
         currentField = Field.FLAG_QR;
-        resume();
+        run();
         return fieldBooleanValue;
     }
 
     public boolean readFlagAA() {
         currentField = Field.FLAG_AA;
-        resume();
+        run();
         return fieldBooleanValue;
     }
 
     public boolean readFlagTC() {
         currentField = Field.FLAG_TC;
-        resume();
+        run();
         return fieldBooleanValue;
     }
 
     public int readQuestionRecordsCount() {
         currentField = Field.QUESTION_RECORDS_COUNT;
-        resume();
+        run();
         return fieldIntValue;
     }
 
     public int readAnswerRecordsCount() {
         currentField = Field.ANSWER_RECORDS_COUNT;
-        resume();
+        run();
         return fieldIntValue;
     }
 
     public int readAuthorityRecordsCount() {
         currentField = Field.AUTHORITY_RECORDS_COUNT;
-        resume();
+        run();
         return fieldIntValue;
     }
 
     public int readAdditionalRecordsCount() {
         currentField = Field.ADDITIONAL_RECORDS_COUNT;
-        resume();
+        run();
         return fieldIntValue;
     }
 
     public String readRecordName() {
         currentField = Field.RECORD_NAME;
-        resume();
+        run();
         return fieldStringValue;
     }
 
     public int readRecordType() {
         currentField = Field.RECORD_TYPE;
-        resume();
+        run();
         return fieldIntValue;
     }
 
     public int readRecordDClass() {
         currentField = Field.RECORD_DCLASS;
-        resume();
+        run();
         return fieldIntValue;
     }
 
     public long readRecordTTL() {
         currentField = Field.RECORD_TTL;
-        resume();
+        run();
         return fieldLongValue;
     }
 
     public int readRecordDataLength() {
         currentField = Field.RECORD_DATA_LENGTH;
-        resume();
+        run();
         return fieldIntValue;
     }
 
     public InetAddress readRecordInetAddress() throws UnknownHostException {
         currentField = Field.RECORD_INET_ADDRESS;
-        resume();
+        run();
         return InetAddress.getByAddress(fieldBytesValue);
     }
 

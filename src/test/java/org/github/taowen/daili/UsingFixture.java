@@ -13,14 +13,14 @@ public abstract class UsingFixture extends TestCase {
     protected void tearDown() throws Exception {
         Fixture fixture;
         while ((fixture = fixtures.poll()) != null) {
-            fixture.resume();
+            fixture.run();
         }
     }
 
-    public static class Fixture extends Task {
+    public static abstract class Fixture extends Task {
         public Fixture(UsingFixture testCase) {
             testCase.fixtures.offer(this);
-            resume();
+            run();
         }
     }
 }

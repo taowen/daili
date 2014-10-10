@@ -112,21 +112,21 @@ public abstract class DnsPacketProcessor extends Task {
 
     public void startFlags() {
         currentField = Field.START_FLAGS;
-        resume();
+        run();
     }
 
     public void endFlags() {
         currentField = Field.END_FLGAS;
-        resume();
+        run();
     }
 
     public void startRecord() throws EOFException {
         currentField = Field.START_RECORD;
-        resume();
+        run();
     }
 
     public void endRecord() throws EOFException {
         currentField = Field.END_RECORD;
-        resume();
+        run();
     }
 }

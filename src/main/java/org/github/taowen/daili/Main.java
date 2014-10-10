@@ -17,7 +17,7 @@ public class Main {
                 channel.socket().bind(new InetSocketAddress(9090));
                 while (true) {
                     final ByteBuffer buffer = ByteBuffer.allocateDirect(8192);
-                    scheduler.receive(channel, buffer);
+                    scheduler.receive(channel, buffer, 60 * 1000);
                     new DailiTask(scheduler){
                         @Override
                         public void execute() throws Pausable, Exception {
@@ -37,7 +37,7 @@ public class Main {
                             dnsPacket.readRecordDClass();
                             dnsPacket.endRecord();
                         }
-                    }.resume();
+                    }.run();
                 }
             }
         };

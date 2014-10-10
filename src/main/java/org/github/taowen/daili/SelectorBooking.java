@@ -28,9 +28,6 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
     public SelectorBooking(Queue<SelectorBooking> bookings, SelectionKey selectionKey) {
         this.bookings = bookings;
         this.selectionKey = selectionKey;
-        if (!bookings.offer(this)) {
-            throw new RuntimeException("add booking failed");
-        }
     }
 
     public void readBlocked(long deadline) throws Pausable, TimeoutException {
@@ -191,12 +188,12 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
         return earliestDeadline;
     }
 
-    public void cancelDeadTasks(long currentTimeMillis) {
+    public boolean cancelDeadTasks(long currentTimeMillis) {
         if (readDeadline > 0 && currentTimeMillis > readDeadline) {
             selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_READ);
             readDeadline = -1;
             updateDeadline();
-            readTask.resume();
+            readTask.run();
             if (-1 == readDeadline) {
                 throw new RuntimeException("read deadline unhandled");
             }
@@ -205,7 +202,7 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
             selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_WRITE);
             writeDeadline = -1;
             updateDeadline();
-            writeTask.resume();
+            writeTask.run();
             if (-1 == writeDeadline) {
                 throw new RuntimeException("write deadline unhandled");
             }
@@ -214,7 +211,7 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
             selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_ACCEPT);
             acceptDeadline = -1;
             updateDeadline();
-            acceptTask.resume();
+            acceptTask.run();
             if (-1 == acceptDeadline) {
                 throw new RuntimeException("accept deadline unhandled");
             }
@@ -223,14 +220,16 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
             selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_CONNECT);
             connectDeadline = -1;
             updateDeadline();
-            connectTask.resume();
+            connectTask.run();
             if (-1 == connectDeadline) {
                 throw new AssertionError("connect deadline unhandled");
             }
         }
         if (0 == selectionKey.interestOps()) {
             selectionKey.cancel();
+            return true;
         }
+        return false;
     }
 
     @Override

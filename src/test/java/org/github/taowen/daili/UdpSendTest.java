@@ -17,7 +17,7 @@ public class UdpSendTest extends UsingFixture {
                 DatagramChannel channel = DatagramChannel.open();
                 channel.configureBlocking(false);
                 ByteBuffer buffer = ByteBuffer.wrap(new byte[]{1, 2, 3, 4});
-                scheduler.send(channel, buffer, new InetSocketAddress(9090));
+                scheduler.send(channel, buffer, new InetSocketAddress(9090), 1000);
             }
         };
         scheduler.callSoon(task);

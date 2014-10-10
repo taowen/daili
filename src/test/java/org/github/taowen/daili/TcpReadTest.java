@@ -2,6 +2,7 @@ package org.github.taowen.daili;
 
 import kilim.Pausable;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
@@ -14,14 +15,14 @@ public class TcpReadTest extends UsingFixture {
         DailiTask task = new DailiTask(scheduler) {
             @Override
             public void execute() throws Pausable, Exception {
-                ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+                ServerSocketChannel serverSocketChannel = open();
                 serverSocketChannel.socket().setReuseAddress(true);
                 serverSocketChannel.socket().bind(new InetSocketAddress(9090));
                 serverSocketChannel.configureBlocking(false);
-                SocketChannel channel = scheduler.accept(serverSocketChannel);
+                SocketChannel channel = scheduler.accept(serverSocketChannel, 1000);
                 channel.configureBlocking(false);
                 ByteBuffer byteBuffer = ByteBuffer.allocateDirect(1024);
-                scheduler.read(channel, byteBuffer);
+                scheduler.read(channel, byteBuffer, 1000);
                 ByteBuffer expected = ByteBuffer.wrap(new byte[]{1, 2, 3, 4});
                 exit(byteBuffer.flip().equals(expected));
             }
@@ -37,5 +38,9 @@ public class TcpReadTest extends UsingFixture {
         scheduler.loopOnce();
         scheduler.loopOnce();
         assertTrue((Boolean)task.exitResult);
+    }
+
+    private ServerSocketChannel open() throws IOException {
+        return TestSocket.openServerSocketChannel(this);
     }
 }
