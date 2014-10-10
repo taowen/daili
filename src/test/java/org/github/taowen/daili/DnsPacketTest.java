@@ -44,7 +44,7 @@ public class DnsPacketTest extends UsingFixture {
         assertThat(header.getCount(Section.ADDITIONAL),
                 is(dnsPacket.readAdditionalRecordsCount()));
         exception.expect(EOFException.class);
-        dnsPacket.startRecord();
+        dnsPacket.startRecord(); // no record really
     }
 
     @Test

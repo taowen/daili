@@ -2,6 +2,8 @@ package org.github.taowen.daili;
 
 import kilim.Pausable;
 import kilim.Task;
+import org.xbill.DNS.Flags;
+import org.xbill.DNS.Section;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -12,14 +14,16 @@ import java.util.Set;
 public class DnsPacket extends Task {
 
     public static enum Field {
-        OPCODE, FLAG_QR, FLAG_AA, FLAG_TC, QUESTION_RECORDS_COUNT, ANSWER_RECORDS_COUNT, AUTHORITY_RECORDS_COUNT, ADDITIONAL_RECORDS_COUNT, START_FLAGS, END_FLGAS, SKIP_HEADER, START_QUESTION_RECORD, RECORD_NAME, RECORD_TYPE, RECORD_DCLASS, END_QUESTION_RECORD, RECORD_DATA_LENGTH, RECORD_TTL, ID
+        OPCODE, FLAG_QR, FLAG_AA, FLAG_TC,
+        QUESTION_RECORDS_COUNT,
+        ANSWER_RECORDS_COUNT,
+        AUTHORITY_RECORDS_COUNT,
+        ADDITIONAL_RECORDS_COUNT,
+        START_FLAGS, END_FLGAS,
+        SKIP_HEADER, // FIXME: remove this
+        START_RECORD, RECORD_NAME, RECORD_TYPE, RECORD_DCLASS, END_RECORD,
+        RECORD_DATA_LENGTH, RECORD_TTL, ID
     }
-    public static Set<Field> FLAG_FIELDS = new HashSet<Field>(){{
-        add(Field.OPCODE);
-        add(Field.FLAG_QR);
-        add(Field.FLAG_AA);
-        add(Field.FLAG_TC);
-    }};
 
     private ByteBuffer byteBuffer;
     private Field readingField;
@@ -41,7 +45,7 @@ public class DnsPacket extends Task {
     }
 
     private void doReadRecord(boolean isQuestionRecord) throws Pausable, IOException {
-        assert Field.START_QUESTION_RECORD == readingField;
+        assert Field.START_RECORD == readingField;
         pass();
         assert Field.RECORD_NAME == readingField;
         doReadRecordName();
@@ -55,7 +59,7 @@ public class DnsPacket extends Task {
             assert Field.RECORD_DATA_LENGTH == readingField;
             pass(byteBuffer.getShort() & 0xFFFF);
         }
-        assert Field.END_QUESTION_RECORD == readingField;
+        assert Field.END_RECORD == readingField;
         pass();
     }
 
@@ -136,35 +140,25 @@ public class DnsPacket extends Task {
     }
 
     private int doReadHeader() throws Pausable {
-        assert Field.SKIP_HEADER == readingField || Field.ID == readingField;
-        if (Field.SKIP_HEADER == readingField) {
-            skipping = true;
-        }
+        assert Field.ID == readingField;
         pass(byteBuffer.getShort() & 0xFFFF);
         readFlags();
-        assert Field.SKIP_HEADER == readingField || Field.QUESTION_RECORDS_COUNT == readingField;
+        assert Field.QUESTION_RECORDS_COUNT == readingField;
         int questionRecordsCount = byteBuffer.getShort() & 0xFFFF;
         pass(questionRecordsCount);
-        assert Field.SKIP_HEADER == readingField || Field.ANSWER_RECORDS_COUNT == readingField;
+        assert Field.ANSWER_RECORDS_COUNT == readingField;
         pass(byteBuffer.getShort() & 0xFFFF);
-        assert Field.SKIP_HEADER == readingField || Field.AUTHORITY_RECORDS_COUNT == readingField;
+        assert Field.AUTHORITY_RECORDS_COUNT == readingField;
         pass(byteBuffer.getShort() & 0xFFFF);
-        assert Field.SKIP_HEADER == readingField || Field.ADDITIONAL_RECORDS_COUNT == readingField;
+        assert Field.ADDITIONAL_RECORDS_COUNT == readingField;
         pass(byteBuffer.getShort() & 0xFFFF);
-        if (Field.SKIP_HEADER == readingField) {
-            skipping = false;
-            pass();
-        }
         return questionRecordsCount;
     }
 
     private void readFlags() throws Pausable {
-        assert Field.SKIP_HEADER == readingField || Field.START_FLAGS == readingField;
+        assert Field.START_FLAGS == readingField;
         pass();
         int flags = byteBuffer.getShort() & 0xFFFF;
-        if (Field.SKIP_HEADER == readingField) {
-            return;
-        }
         while (Field.END_FLGAS != readingField) {
             switch (readingField) {
                 case OPCODE:
@@ -229,8 +223,13 @@ public class DnsPacket extends Task {
     }
 
     public void skipHeader() {
-        readingField = Field.SKIP_HEADER;
-        resume();
+        readId();
+        startFlags();
+        endFlags();
+        readQuestionRecordsCount();
+        readAnswerRecordsCount();
+        readAuthorityRecordsCount();
+        readAdditionalRecordsCount();
     }
 
     public int readId() {
@@ -299,12 +298,12 @@ public class DnsPacket extends Task {
 
     public void startRecord() throws EOFException {
         checkEOF();
-        readingField = Field.START_QUESTION_RECORD;
+        readingField = Field.START_RECORD;
         resume();
     }
 
     public void endRecord() throws EOFException {
-        readingField = Field.END_QUESTION_RECORD;
+        readingField = Field.END_RECORD;
         resume();
     }
 
