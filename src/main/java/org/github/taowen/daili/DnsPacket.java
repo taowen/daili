@@ -7,6 +7,8 @@ import org.xbill.DNS.Section;
 
 import java.io.EOFException;
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.HashSet;
 import java.util.Set;
@@ -20,15 +22,15 @@ public class DnsPacket extends Task {
         AUTHORITY_RECORDS_COUNT,
         ADDITIONAL_RECORDS_COUNT,
         START_FLAGS, END_FLGAS,
-        SKIP_HEADER, // FIXME: remove this
         START_RECORD, RECORD_NAME, RECORD_TYPE, RECORD_DCLASS, END_RECORD,
-        RECORD_DATA_LENGTH, RECORD_TTL, ID
+        RECORD_DATA_LENGTH, RECORD_TTL, RECORD_INET_ADDRESS, ID
     }
 
     private ByteBuffer byteBuffer;
     private Field readingField;
     private long fieldLongValue;
     private int fieldIntValue;
+    private byte[] fieldBytesValue;
     private String fieldStringValue;
     private boolean fieldBooleanValue;
     private boolean skipping;
@@ -56,8 +58,18 @@ public class DnsPacket extends Task {
         if (!isQuestionRecord) {
             assert Field.RECORD_TTL == readingField;
             pass(byteBuffer.getInt() & 0xFFFFFFFFL);
+            if (Field.END_RECORD == readingField) {
+                int dataLength = byteBuffer.getShort() & 0xFFFF;
+                byteBuffer.position(byteBuffer.position() + dataLength);
+                pass();
+                return;
+            }
             assert Field.RECORD_DATA_LENGTH == readingField;
             pass(byteBuffer.getShort() & 0xFFFF);
+            assert Field.RECORD_INET_ADDRESS == readingField;
+            fieldBytesValue = new byte[4];
+            byteBuffer.get(fieldBytesValue);
+            pass();
         }
         assert Field.END_RECORD == readingField;
         pass();
@@ -335,6 +347,12 @@ public class DnsPacket extends Task {
         readingField = Field.RECORD_DATA_LENGTH;
         resume();
         return fieldIntValue;
+    }
+
+    public InetAddress readRecordInetAddress() throws UnknownHostException {
+        readingField = Field.RECORD_INET_ADDRESS;
+        resume();
+        return InetAddress.getByAddress(fieldBytesValue);
     }
 
     private void checkEOF() throws EOFException {

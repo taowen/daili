@@ -9,6 +9,7 @@ import org.xbill.DNS.*;
 
 import java.io.EOFException;
 import java.net.Inet4Address;
+import java.net.InetAddress;
 import java.nio.ByteBuffer;
 
 import static org.hamcrest.CoreMatchers.is;
@@ -67,7 +68,7 @@ public class DnsPacketTest extends UsingFixture {
         Record q = Record.newRecord(new Name("www.google.com."), Type.A, DClass.IN);
         Message message = new Message();
         message.addRecord(q, Section.QUESTION);
-        message.addRecord(new ARecord(new Name("www.google.com."), DClass.IN, 60, Inet4Address.getByName("1.1.1.1")), Section.ANSWER);
+        message.addRecord(new ARecord(new Name("www.google.com."), DClass.IN, 60, Inet4Address.getByName("1.2.3.4")), Section.ANSWER);
         byte[] bytes = message.toWire();
         DnsPacket dnsPacket = new DnsPacket();
         dnsPacket.setByteBuffer(ByteBuffer.wrap(bytes));
@@ -83,6 +84,30 @@ public class DnsPacketTest extends UsingFixture {
         assertEquals(DClass.IN, dnsPacket.readRecordDClass());
         assertEquals(60, dnsPacket.readRecordTTL());
         assertEquals(4, dnsPacket.readRecordDataLength());
+        assertEquals(InetAddress.getByName("1.2.3.4"), dnsPacket.readRecordInetAddress());
+        dnsPacket.endRecord();
+    }
+
+    @Test
+    public void oneAButSkipData() throws Exception {
+        Record q = Record.newRecord(new Name("www.google.com."), Type.A, DClass.IN);
+        Message message = new Message();
+        message.addRecord(q, Section.QUESTION);
+        message.addRecord(new ARecord(new Name("www.google.com."), DClass.IN, 60, Inet4Address.getByName("1.2.3.4")), Section.ANSWER);
+        byte[] bytes = message.toWire();
+        DnsPacket dnsPacket = new DnsPacket();
+        dnsPacket.setByteBuffer(ByteBuffer.wrap(bytes));
+        dnsPacket.skipHeader();
+        dnsPacket.startRecord();
+        assertEquals("www.google.com.", dnsPacket.readRecordName());
+        assertEquals(Type.A, dnsPacket.readRecordType());
+        assertEquals(DClass.IN, dnsPacket.readRecordDClass());
+        dnsPacket.endRecord();
+        dnsPacket.startRecord();
+        assertEquals("www.google.com.", dnsPacket.readRecordName());
+        assertEquals(Type.A, dnsPacket.readRecordType());
+        assertEquals(DClass.IN, dnsPacket.readRecordDClass());
+        assertEquals(60, dnsPacket.readRecordTTL());
         dnsPacket.endRecord();
     }
 }
