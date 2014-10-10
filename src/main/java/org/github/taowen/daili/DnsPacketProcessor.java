@@ -22,11 +22,6 @@ public abstract class DnsPacketProcessor extends Task {
 
     protected ByteBuffer byteBuffer;
     protected Field currentField;
-    protected long fieldLongValue;
-    protected int fieldIntValue;
-    protected byte[] fieldBytesValue;
-    protected String fieldStringValue;
-    protected boolean fieldBooleanValue;
 
     @Override
     public void execute() throws Pausable, Exception {
@@ -42,6 +37,8 @@ public abstract class DnsPacketProcessor extends Task {
     private int processHeader() throws Pausable {
         assert Field.ID == currentField;
         processId();
+        assert Field.START_FLAGS == currentField;
+        pass();
         processFlags();
         assert Field.QUESTION_RECORDS_COUNT == currentField;
         int questionRecordsCount = processQuestionRecordsCount();

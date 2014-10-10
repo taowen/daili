@@ -8,6 +8,12 @@ import java.net.UnknownHostException;
 
 public class DnsPacketReader extends DnsPacketProcessor {
 
+    protected long fieldLongValue;
+    protected int fieldIntValue;
+    protected byte[] fieldBytesValue;
+    protected String fieldStringValue;
+    protected boolean fieldBooleanValue;
+
     public void skipHeader() {
         readId();
         startFlags();
@@ -137,8 +143,6 @@ public class DnsPacketReader extends DnsPacketProcessor {
 
     @Override
     protected void processFlags() throws Pausable {
-        assert Field.START_FLAGS == currentField;
-        pass();
         int flags = byteBuffer.getShort() & 0xFFFF;
         while (Field.END_FLGAS != currentField) {
             switch (currentField) {
