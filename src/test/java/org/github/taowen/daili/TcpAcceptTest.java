@@ -8,6 +8,10 @@ import java.net.Socket;
 import java.nio.channels.ServerSocketChannel;
 import java.util.concurrent.TimeoutException;
 
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.not;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 public class TcpAcceptTest extends UsingFixture {
     public void testIncomplete() throws IOException {
         DefaultScheduler scheduler = new TestScheduler(this);
@@ -24,7 +28,7 @@ public class TcpAcceptTest extends UsingFixture {
         };
         task.run();
         scheduler.loopOnce();
-        assertFalse("accepted".equals(task.exitResult));
+        assertThat(task.exitResult, not((Object)"accepted"));
     }
 
     public void testSuccess() throws IOException {
@@ -44,10 +48,10 @@ public class TcpAcceptTest extends UsingFixture {
         scheduler.loopOnce();
         Socket client = new Socket();
         client.connect(new InetSocketAddress(9090));
-        assertTrue(client.isConnected());
+        assertThat(client.isConnected(), is(true));
         scheduler.loopOnce();
         scheduler.loopOnce();
-        assertEquals("accepted", task.exitResult);
+        assertThat(task.exitResult, is((Object)"accepted"));
     }
 
     public void testTimeout() throws IOException {
@@ -71,7 +75,7 @@ public class TcpAcceptTest extends UsingFixture {
         scheduler.loopOnce();
         scheduler.fixedCurrentTimeMillis += 3000;
         scheduler.loopOnce();
-        assertEquals("timeout", task.exitResult);
+        assertThat(task.exitResult, is((Object)"timeout"));
     }
 
     public void testOneTimeoutOneSuccess() throws IOException {
@@ -112,14 +116,14 @@ public class TcpAcceptTest extends UsingFixture {
         scheduler.loopOnce();
         scheduler.fixedCurrentTimeMillis += 1500;
         scheduler.loopOnce();
-        assertEquals("timeout", task1.exitResult);
-        assertFalse("timeout".equals(task2.exitResult));
+        assertThat(task1.exitResult, is((Object)"timeout"));
+        assertThat(task2.exitResult, not((Object)"timeout"));
         Socket client = new Socket();
         client.connect(new InetSocketAddress(8090));
-        assertTrue(client.isConnected());
+        assertThat(client.isConnected(), is(true));
         scheduler.loopOnce();
         scheduler.loopOnce();
-        assertEquals("done", task1.exitResult);
+        assertThat(task1.exitResult, is((Object)"done"));
     }
 
     private ServerSocketChannel open() throws IOException {

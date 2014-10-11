@@ -9,6 +9,9 @@ import java.nio.ByteBuffer;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 public class TcpReadTest extends UsingFixture {
     public void test() throws Exception {
         DefaultScheduler scheduler = new TestScheduler(this);
@@ -31,13 +34,13 @@ public class TcpReadTest extends UsingFixture {
         scheduler.loopOnce();
         Socket client = new Socket();
         client.connect(new InetSocketAddress(9090));
-        assertTrue(client.isConnected());
+        assertThat(client.isConnected(), is(true));
         scheduler.loopOnce();
         scheduler.loopOnce();
         client.getOutputStream().write(new byte[]{1, 2, 3, 4});
         scheduler.loopOnce();
         scheduler.loopOnce();
-        assertTrue((Boolean)task.exitResult);
+        assertThat(task.exitResult, is((Object)true));
     }
 
     private ServerSocketChannel open() throws IOException {

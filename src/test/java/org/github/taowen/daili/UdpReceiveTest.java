@@ -8,6 +8,9 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
 
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 public class UdpReceiveTest extends UsingFixture {
     public void test() throws Exception {
         DefaultScheduler scheduler = new TestScheduler(this);
@@ -31,12 +34,12 @@ public class UdpReceiveTest extends UsingFixture {
         scheduler.loopOnce();
         DatagramSocket client = new DatagramSocket();
         client.connect(new InetSocketAddress(9090));
-        assertTrue(client.isConnected());
+        assertThat(client.isConnected(), is(true));
         scheduler.loopOnce();
         scheduler.loopOnce();
         client.send(new DatagramPacket(new byte[]{1, 2, 3, 4}, 4));
         scheduler.loopOnce();
         scheduler.loopOnce();
-        assertTrue((Boolean)task.exitResult);
+        assertThat(task.exitResult, is((Object)true));
     }
 }

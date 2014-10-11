@@ -10,6 +10,9 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.Arrays;
 
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 public class TcpWriteTest extends UsingFixture {
     public void test() throws Exception {
         DefaultScheduler scheduler = new TestScheduler(this);
@@ -30,14 +33,14 @@ public class TcpWriteTest extends UsingFixture {
         scheduler.loopOnce();
         Socket client = new Socket();
         client.connect(new InetSocketAddress(9090));
-        assertTrue(client.isConnected());
+        assertThat(client.isConnected(), is(true));
         scheduler.loopOnce();
         scheduler.loopOnce();
         byte[] output = new byte[4];
         client.getInputStream().read(output);
         scheduler.loopOnce();
         scheduler.loopOnce();
-        assertTrue(Arrays.equals(new byte[]{1, 2, 3, 4}, output));
+        assertThat(output, is(new byte[]{1, 2, 3, 4}));
     }
 
     private ServerSocketChannel open() throws IOException {

@@ -4,6 +4,9 @@ import junit.framework.TestCase;
 import kilim.Pausable;
 import kilim.Task;
 
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 public class TaskTest extends TestCase {
     public void testExit() {
         Task task = new Task() {
@@ -13,7 +16,7 @@ public class TaskTest extends TestCase {
             }
         };
         task.run();
-        assertEquals("hello", task.exitResult);
+        assertThat("hello", is(task.exitResult));
     }
 
     public void testPause() {
@@ -26,8 +29,8 @@ public class TaskTest extends TestCase {
             }
         };
         task.run();
-        assertEquals("1", task.exitResult);
+        assertThat("1", is(task.exitResult));
         task.run();
-        assertEquals("2", task.exitResult);
+        assertThat("2", is(task.exitResult));
     }
 }

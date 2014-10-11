@@ -23,7 +23,7 @@ public class DnsPacketReaderTest extends UsingFixture {
         byte[] bytes = message.toWire();
         DnsPacketReader dnsPacket = new DnsPacketReader();
         dnsPacket.byteBuffer(ByteBuffer.wrap(bytes));
-        assertEquals(header.getID(), dnsPacket.readId());
+        assertThat(header.getID(), is(dnsPacket.readId()));
         dnsPacket.startFlags();
         assertThat(header.getOpcode(), is(dnsPacket.readOpcode()));
         assertThat(header.getFlag(Flags.QR), is(dnsPacket.readFlagQR()));
@@ -50,9 +50,9 @@ public class DnsPacketReaderTest extends UsingFixture {
         dnsPacket.byteBuffer(ByteBuffer.wrap(bytes));
         dnsPacket.skipHeader();
         dnsPacket.startRecord();
-        assertEquals("www.google.com.", dnsPacket.readRecordName());
-        assertEquals(Type.A, dnsPacket.readRecordType());
-        assertEquals(DClass.IN, dnsPacket.readRecordDClass());
+        assertThat("www.google.com.", is(dnsPacket.readRecordName()));
+        assertThat(Type.A, is(dnsPacket.readRecordType()));
+        assertThat(DClass.IN, is(dnsPacket.readRecordDClass()));
         dnsPacket.endRecord();
     }
 
@@ -67,17 +67,17 @@ public class DnsPacketReaderTest extends UsingFixture {
         dnsPacket.byteBuffer(ByteBuffer.wrap(bytes));
         dnsPacket.skipHeader();
         dnsPacket.startRecord();
-        assertEquals("www.google.com.", dnsPacket.readRecordName());
-        assertEquals(Type.A, dnsPacket.readRecordType());
-        assertEquals(DClass.IN, dnsPacket.readRecordDClass());
+        assertThat("www.google.com.", is(dnsPacket.readRecordName()));
+        assertThat(Type.A, is(dnsPacket.readRecordType()));
+        assertThat(DClass.IN, is(dnsPacket.readRecordDClass()));
         dnsPacket.endRecord();
         dnsPacket.startRecord();
-        assertEquals("www.google.com.", dnsPacket.readRecordName());
-        assertEquals(Type.A, dnsPacket.readRecordType());
-        assertEquals(DClass.IN, dnsPacket.readRecordDClass());
-        assertEquals(60, dnsPacket.readRecordTTL());
-        assertEquals(4, dnsPacket.readRecordDataLength());
-        assertEquals(InetAddress.getByName("1.2.3.4"), dnsPacket.readRecordInetAddress());
+        assertThat("www.google.com.", is(dnsPacket.readRecordName()));
+        assertThat(Type.A, is(dnsPacket.readRecordType()));
+        assertThat(DClass.IN, is(dnsPacket.readRecordDClass()));
+        assertThat((long)60, is(dnsPacket.readRecordTTL()));
+        assertThat(4, is(dnsPacket.readRecordDataLength()));
+        assertThat(InetAddress.getByName("1.2.3.4"), is(dnsPacket.readRecordInetAddress()));
         dnsPacket.endRecord();
     }
 
@@ -92,15 +92,15 @@ public class DnsPacketReaderTest extends UsingFixture {
         dnsPacket.byteBuffer(ByteBuffer.wrap(bytes));
         dnsPacket.skipHeader();
         dnsPacket.startRecord();
-        assertEquals("www.google.com.", dnsPacket.readRecordName());
-        assertEquals(Type.A, dnsPacket.readRecordType());
-        assertEquals(DClass.IN, dnsPacket.readRecordDClass());
+        assertThat("www.google.com.", is(dnsPacket.readRecordName()));
+        assertThat(Type.A, is(dnsPacket.readRecordType()));
+        assertThat(DClass.IN, is(dnsPacket.readRecordDClass()));
         dnsPacket.endRecord();
         dnsPacket.startRecord();
-        assertEquals("www.google.com.", dnsPacket.readRecordName());
-        assertEquals(Type.A, dnsPacket.readRecordType());
-        assertEquals(DClass.IN, dnsPacket.readRecordDClass());
-        assertEquals(60, dnsPacket.readRecordTTL());
+        assertThat("www.google.com.", is(dnsPacket.readRecordName()));
+        assertThat(Type.A, is(dnsPacket.readRecordType()));
+        assertThat(DClass.IN, is(dnsPacket.readRecordDClass()));
+        assertThat((long)60, is(dnsPacket.readRecordTTL()));
         dnsPacket.endRecord();
     }
 }

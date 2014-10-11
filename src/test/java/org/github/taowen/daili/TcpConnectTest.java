@@ -7,6 +7,10 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.channels.SocketChannel;
 
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.notNullValue;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 public class TcpConnectTest extends UsingFixture {
     public void test() throws Exception {
         ServerSocket serverSocket = new ServerSocket();
@@ -24,9 +28,9 @@ public class TcpConnectTest extends UsingFixture {
             };
             task.run();
             scheduler.loopOnce();
-            assertEquals("accepted", task.exitResult);
+            assertThat(task.exitResult, is((Object) "accepted"));
             Socket clientSocket = serverSocket.accept();
-            assertNotNull(clientSocket);
+            assertThat(clientSocket, notNullValue());
         } finally {
             serverSocket.close();
         }
