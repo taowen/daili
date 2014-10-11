@@ -20,11 +20,11 @@ public class UdpSendTest extends UsingFixture {
                 getScheduler().send(channel, buffer, new InetSocketAddress(9090), 1000);
             }
         };
-        scheduler.callSoon(task);
         DatagramSocket client = new DatagramSocket(new InetSocketAddress(9090));
         try {
-            scheduler.loopOnce();
+            task.run();
             DatagramPacket packet = new DatagramPacket(new byte[4], 4);
+            client.setSoTimeout(100);
             client.receive(packet);
             scheduler.loopOnce();
         } finally {

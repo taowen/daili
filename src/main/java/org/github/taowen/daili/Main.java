@@ -9,7 +9,8 @@ import java.nio.channels.DatagramChannel;
 public class Main {
     public static void main(String[] args) throws Exception {
         Scheduler scheduler = new DefaultScheduler();
-        DailiTask task = new DailiTask(scheduler) {
+        final PinnedWorker worker = new PinnedWorker();
+        DailiTask task = new DailiTask(scheduler, worker) {
             @Override
             public void execute() throws Pausable, Exception {
                 DatagramChannel channel = DatagramChannel.open();
@@ -18,7 +19,7 @@ public class Main {
                 while (true) {
                     final ByteBuffer buffer = ByteBuffer.allocateDirect(8192);
                     getScheduler().receive(channel, buffer, 60 * 1000);
-                    new DailiTask(getScheduler()){
+                    new DailiTask(getScheduler(), worker){
                         @Override
                         public void execute() throws Pausable, Exception {
                             buffer.flip();
@@ -41,7 +42,8 @@ public class Main {
                 }
             }
         };
-        scheduler.callSoon(task);
+        task.run();
+        new Thread(worker).start();
         scheduler.loop();
     }
 }

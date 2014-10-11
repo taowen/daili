@@ -27,7 +27,7 @@ public class TcpReadTest extends UsingFixture {
                 exit(byteBuffer.flip().equals(expected));
             }
         };
-        scheduler.callSoon(task);
+        task.run();
         scheduler.loopOnce();
         Socket client = new Socket();
         client.connect(new InetSocketAddress(9090));

@@ -15,11 +15,11 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeoutException;
 
 public class DefaultScheduler extends Scheduler {
-    private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DefaultScheduler.class);
     protected Selector selector;
-    Queue<SelectorBooking> selectorBookings = new PriorityQueue<SelectorBooking>();
-    // readyTasks is the only entrance to the scheduler thread
-    private Queue<Runnable> readyTasks = new ConcurrentLinkedQueue<Runnable>();
+    private Queue<SelectorBooking> selectorBookings = new PriorityQueue<SelectorBooking>();
+    // externalTasks is the only entrance to the scheduler thread
+    private Queue<Task> externalTasks = new ConcurrentLinkedQueue<Task>();
 
     public DefaultScheduler() {
         try {
@@ -37,36 +37,14 @@ public class DefaultScheduler extends Scheduler {
     }
 
     @Override
-    public void callSoon(Runnable task) {
-        if (!readyTasks.offer(task)) {
-            throw new RuntimeException("failed to add ready task");
-        }
-    }
-
-    @Override
     public void loop() {
         while (loopOnce()) {
-            if (!hasPendingTask()) {
-                LOGGER.error("no more task to loop for, quit now...");
-                return;
-            }
         }
-    }
-
-    private boolean hasPendingTask() {
-        if (!readyTasks.isEmpty()) {
-            return true;
-        }
-        SelectorBooking booking = selectorBookings.peek();
-        if (booking != null && booking.hasPendingTask()) {
-            return true;
-        }
-        return false;
     }
 
     boolean loopOnce() {
         try {
-            executeReadyTasks();
+            executeExternalTasks();
             doSelect();
             Iterator<SelectionKey> iterator = selector.selectedKeys().iterator();
             ioUnblocked(iterator);
@@ -85,6 +63,17 @@ public class DefaultScheduler extends Scheduler {
         }
     }
 
+    private void executeExternalTasks() {
+        Task task;
+        while((task = externalTasks.poll()) != null) {
+            try {
+                task._runExecute();
+            } catch (Exception e) {
+                LOGGER.error("failed to execute external task: " + task, e);
+            }
+        }
+    }
+
     private boolean hasDeadSelectorBooking() {
         SelectorBooking booking = selectorBookings.peek();
         if (null == booking) {
@@ -98,12 +87,20 @@ public class DefaultScheduler extends Scheduler {
     }
 
     private void ioUnblocked(Iterator<SelectionKey> iterator) {
+        List<Runnable> readyTasks = new ArrayList<Runnable>();
         while (iterator.hasNext()) {
             SelectionKey selectionKey = iterator.next();
             iterator.remove();
             SelectorBooking selectorBooking = (SelectorBooking) selectionKey.attachment();
             for (Task task : selectorBooking.ioUnblocked()) {
-                callSoon(task);
+                readyTasks.add(task);
+            }
+        }
+        for (Runnable readyTask : readyTasks) {
+            try {
+                readyTask.run();
+            } catch (Exception e) {
+                LOGGER.error("failed to run task: " + readyTask, e);
             }
         }
     }
@@ -122,23 +119,8 @@ public class DefaultScheduler extends Scheduler {
         }
     }
 
-    private void executeReadyTasks() {
-        Runnable task;
-        while((task = readyTasks.poll()) != null) {
-            executeTask(task);
-        }
-    }
-
-    private void executeTask(Runnable task) {
-        try {
-            task.run();
-        } catch (Exception e) {
-            LOGGER.error("failed to execute task: " + task, e);
-        }
-    }
-
     private void switchToMyThread() throws Pausable {
-        callSoon(Task.getCurrentTask());
+        submit(Task.getCurrentTask());
         selector.wakeup();
         Task.yield();
         // should run in scheduler thread now
@@ -256,5 +238,9 @@ public class DefaultScheduler extends Scheduler {
         }
         writeBlocked(channel, timeout);
         return channel.send(byteBuffer, target);
+    }
+
+    private void submit(Task task) {
+        externalTasks.add(task);
     }
 }

@@ -22,7 +22,7 @@ public class TcpAcceptTest extends UsingFixture {
                 exit("accepted");
             }
         };
-        scheduler.callSoon(task);
+        task.run();
         scheduler.loopOnce();
         assertFalse("accepted".equals(task.exitResult));
     }
@@ -40,7 +40,7 @@ public class TcpAcceptTest extends UsingFixture {
                 exit("accepted");
             }
         };
-        scheduler.callSoon(task);
+        task.run();
         scheduler.loopOnce();
         Socket client = new Socket();
         client.connect(new InetSocketAddress(9090));
@@ -67,7 +67,7 @@ public class TcpAcceptTest extends UsingFixture {
                 }
             }
         };
-        scheduler.callSoon(task);
+        task.run();
         scheduler.loopOnce();
         scheduler.fixedCurrentTimeMillis += 3000;
         scheduler.loopOnce();
@@ -93,7 +93,7 @@ public class TcpAcceptTest extends UsingFixture {
                 exit("done");
             }
         };
-        scheduler.callSoon(task1);
+        task1.run();
         DailiTask task2 = new DailiTask(scheduler) {
             @Override
             public void execute() throws Pausable, Exception {
@@ -108,7 +108,7 @@ public class TcpAcceptTest extends UsingFixture {
                 }
             }
         };
-        scheduler.callSoon(task2);
+        task2.run();
         scheduler.loopOnce();
         scheduler.fixedCurrentTimeMillis += 1500;
         scheduler.loopOnce();

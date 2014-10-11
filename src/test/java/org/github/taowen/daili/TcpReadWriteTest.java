@@ -43,10 +43,13 @@ public class TcpReadWriteTest extends UsingFixture {
                     getScheduler().write(channel, ByteBuffer.wrap(new byte[]{5, 6, 7, 8}), 1000);
                 }
             };
-            scheduler.callSoon(serverTask);
-            scheduler.callSoon(clientTask);
-            scheduler.loop();
-            assertTrue((Boolean)serverTask.exitResult);
+            serverTask.run();
+            clientTask.run();
+            while (scheduler.loopOnce()) {
+                if (Boolean.TRUE.equals(serverTask.exitResult)) {
+                    break;
+                }
+            }
         } finally {
             scheduler.close();
         }

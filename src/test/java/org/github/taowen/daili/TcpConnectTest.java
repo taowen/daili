@@ -22,7 +22,7 @@ public class TcpConnectTest extends UsingFixture {
                     exit("accepted");
                 }
             };
-            scheduler.callSoon(task);
+            task.run();
             scheduler.loopOnce();
             assertEquals("accepted", task.exitResult);
             Socket clientSocket = serverSocket.accept();

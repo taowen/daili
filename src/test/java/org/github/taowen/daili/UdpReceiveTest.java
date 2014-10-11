@@ -27,7 +27,7 @@ public class UdpReceiveTest extends UsingFixture {
                 }
             }
         };
-        scheduler.callSoon(task);
+        task.run();
         scheduler.loopOnce();
         DatagramSocket client = new DatagramSocket();
         client.connect(new InetSocketAddress(9090));

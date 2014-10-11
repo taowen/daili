@@ -26,7 +26,7 @@ public class TcpWriteTest extends UsingFixture {
                 getScheduler().write(channel, byteBuffer, 1000);
             }
         };
-        scheduler.callSoon(task);
+        task.run();
         scheduler.loopOnce();
         Socket client = new Socket();
         client.connect(new InetSocketAddress(9090));
