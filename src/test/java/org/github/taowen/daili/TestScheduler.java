@@ -4,7 +4,7 @@ import kilim.Pausable;
 
 import java.io.IOException;
 
-public class TestScheduler extends Scheduler {
+public class TestScheduler extends DefaultScheduler {
 
     public Long fixedCurrentTimeMillis;
 

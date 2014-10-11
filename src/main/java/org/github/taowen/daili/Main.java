@@ -8,7 +8,7 @@ import java.nio.channels.DatagramChannel;
 
 public class Main {
     public static void main(String[] args) throws Exception {
-        Scheduler scheduler = new Scheduler();
+        Scheduler scheduler = new DefaultScheduler();
         DailiTask task = new DailiTask(scheduler) {
             @Override
             public void execute() throws Pausable, Exception {
@@ -17,8 +17,8 @@ public class Main {
                 channel.socket().bind(new InetSocketAddress(9090));
                 while (true) {
                     final ByteBuffer buffer = ByteBuffer.allocateDirect(8192);
-                    scheduler.receive(channel, buffer, 60 * 1000);
-                    new DailiTask(scheduler){
+                    getScheduler().receive(channel, buffer, 60 * 1000);
+                    new DailiTask(getScheduler()){
                         @Override
                         public void execute() throws Pausable, Exception {
                             buffer.flip();

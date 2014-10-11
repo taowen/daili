@@ -12,7 +12,7 @@ import java.util.Arrays;
 
 public class TcpWriteTest extends UsingFixture {
     public void test() throws Exception {
-        Scheduler scheduler = new TestScheduler(this);
+        DefaultScheduler scheduler = new TestScheduler(this);
         DailiTask task = new DailiTask(scheduler) {
             @Override
             public void execute() throws Pausable, Exception {
@@ -20,10 +20,10 @@ public class TcpWriteTest extends UsingFixture {
                 serverSocketChannel.socket().setReuseAddress(true);
                 serverSocketChannel.socket().bind(new InetSocketAddress(9090));
                 serverSocketChannel.configureBlocking(false);
-                SocketChannel channel = scheduler.accept(serverSocketChannel, 1000);
+                SocketChannel channel = getScheduler().accept(serverSocketChannel, 1000);
                 channel.configureBlocking(false);
                 ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[]{1, 2, 3, 4});
-                scheduler.write(channel, byteBuffer, 1000);
+                getScheduler().write(channel, byteBuffer, 1000);
             }
         };
         scheduler.callSoon(task);

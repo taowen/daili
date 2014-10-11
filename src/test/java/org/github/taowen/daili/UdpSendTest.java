@@ -10,14 +10,14 @@ import java.nio.channels.DatagramChannel;
 
 public class UdpSendTest extends UsingFixture {
     public void test() throws Exception {
-        Scheduler scheduler = new TestScheduler(this);
+        DefaultScheduler scheduler = new TestScheduler(this);
         DailiTask task = new DailiTask(scheduler) {
             @Override
             public void execute() throws Pausable, Exception {
                 DatagramChannel channel = DatagramChannel.open();
                 channel.configureBlocking(false);
                 ByteBuffer buffer = ByteBuffer.wrap(new byte[]{1, 2, 3, 4});
-                scheduler.send(channel, buffer, new InetSocketAddress(9090), 1000);
+                getScheduler().send(channel, buffer, new InetSocketAddress(9090), 1000);
             }
         };
         scheduler.callSoon(task);

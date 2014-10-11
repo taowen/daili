@@ -13,12 +13,12 @@ public class TcpConnectTest extends UsingFixture {
         try {
             serverSocket.setReuseAddress(true);
             serverSocket.bind(new InetSocketAddress(9090));
-            Scheduler scheduler = new TestScheduler(this);
+            DefaultScheduler scheduler = new TestScheduler(this);
             DailiTask task = new DailiTask(scheduler) {
                 @Override
                 public void execute() throws Pausable, Exception {
                     SocketChannel socketChannel = SocketChannel.open();
-                    scheduler.connect(socketChannel, new InetSocketAddress(9090), 1000);
+                    getScheduler().connect(socketChannel, new InetSocketAddress(9090), 1000);
                     exit("accepted");
                 }
             };

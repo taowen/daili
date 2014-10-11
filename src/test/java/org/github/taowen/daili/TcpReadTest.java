@@ -11,7 +11,7 @@ import java.nio.channels.SocketChannel;
 
 public class TcpReadTest extends UsingFixture {
     public void test() throws Exception {
-        Scheduler scheduler = new TestScheduler(this);
+        DefaultScheduler scheduler = new TestScheduler(this);
         DailiTask task = new DailiTask(scheduler) {
             @Override
             public void execute() throws Pausable, Exception {
@@ -19,10 +19,10 @@ public class TcpReadTest extends UsingFixture {
                 serverSocketChannel.socket().setReuseAddress(true);
                 serverSocketChannel.socket().bind(new InetSocketAddress(9090));
                 serverSocketChannel.configureBlocking(false);
-                SocketChannel channel = scheduler.accept(serverSocketChannel, 1000);
+                SocketChannel channel = getScheduler().accept(serverSocketChannel, 1000);
                 channel.configureBlocking(false);
                 ByteBuffer byteBuffer = ByteBuffer.allocateDirect(1024);
-                scheduler.read(channel, byteBuffer, 1000);
+                getScheduler().read(channel, byteBuffer, 1000);
                 ByteBuffer expected = ByteBuffer.wrap(new byte[]{1, 2, 3, 4});
                 exit(byteBuffer.flip().equals(expected));
             }

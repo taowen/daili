@@ -10,7 +10,7 @@ import java.nio.channels.DatagramChannel;
 
 public class UdpReceiveTest extends UsingFixture {
     public void test() throws Exception {
-        Scheduler scheduler = new TestScheduler(this);
+        DefaultScheduler scheduler = new TestScheduler(this);
         DailiTask task = new DailiTask(scheduler) {
             @Override
             public void execute() throws Pausable, Exception {
@@ -19,7 +19,7 @@ public class UdpReceiveTest extends UsingFixture {
                 channel.socket().bind(new InetSocketAddress(9090));
                 try {
                     ByteBuffer buffer = ByteBuffer.allocateDirect(1024);
-                    scheduler.receive(channel, buffer, 1000);
+                    getScheduler().receive(channel, buffer, 1000);
                     ByteBuffer expected = ByteBuffer.wrap(new byte[]{1, 2, 3, 4});
                     exit(buffer.flip().equals(expected));
                 } finally {
