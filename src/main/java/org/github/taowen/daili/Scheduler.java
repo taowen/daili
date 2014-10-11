@@ -1,7 +1,6 @@
 package org.github.taowen.daili;
 
 import kilim.Pausable;
-import kilim.Task;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -15,7 +14,7 @@ import java.util.concurrent.TimeoutException;
 // kilim does not allow interface with Pausable
 public abstract class Scheduler {
 
-    public abstract void callSoon(Task task);
+    public abstract void callSoon(Runnable task);
 
     public abstract void loop();
 

@@ -18,8 +18,8 @@ public class DefaultScheduler extends Scheduler {
     private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
     protected Selector selector;
     Queue<SelectorBooking> selectorBookings = new PriorityQueue<SelectorBooking>();
-    // readyTasks is the only entrance to the io scheduler thread
-    private Queue<Task> readyTasks = new ConcurrentLinkedQueue<Task>();
+    // readyTasks is the only entrance to the scheduler thread
+    private Queue<Runnable> readyTasks = new ConcurrentLinkedQueue<Runnable>();
 
     public DefaultScheduler() {
         try {
@@ -37,7 +37,7 @@ public class DefaultScheduler extends Scheduler {
     }
 
     @Override
-    public void callSoon(Task task) {
+    public void callSoon(Runnable task) {
         if (!readyTasks.offer(task)) {
             throw new RuntimeException("failed to add ready task");
         }
@@ -123,13 +123,13 @@ public class DefaultScheduler extends Scheduler {
     }
 
     private void executeReadyTasks() {
-        Task task;
+        Runnable task;
         while((task = readyTasks.poll()) != null) {
             executeTask(task);
         }
     }
 
-    private void executeTask(Task task) {
+    private void executeTask(Runnable task) {
         try {
             task.run();
         } catch (Exception e) {
@@ -141,7 +141,7 @@ public class DefaultScheduler extends Scheduler {
         callSoon(Task.getCurrentTask());
         selector.wakeup();
         Task.yield();
-        // should run in io scheduler thread now
+        // should run in scheduler thread now
     }
 
     @Override
