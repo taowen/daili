@@ -22,7 +22,7 @@ public class DnsPacketReaderTest extends UsingFixture {
         Header header = message.getHeader();
         byte[] bytes = message.toWire();
         DnsPacketReader dnsPacket = new DnsPacketReader();
-        dnsPacket.setByteBuffer(ByteBuffer.wrap(bytes));
+        dnsPacket.byteBuffer(ByteBuffer.wrap(bytes));
         assertEquals(header.getID(), dnsPacket.readId());
         dnsPacket.startFlags();
         assertThat(header.getOpcode(), is(dnsPacket.readOpcode()));
@@ -47,7 +47,7 @@ public class DnsPacketReaderTest extends UsingFixture {
         Message message = Message.newQuery(record);
         byte[] bytes = message.toWire();
         DnsPacketReader dnsPacket = new DnsPacketReader();
-        dnsPacket.setByteBuffer(ByteBuffer.wrap(bytes));
+        dnsPacket.byteBuffer(ByteBuffer.wrap(bytes));
         dnsPacket.skipHeader();
         dnsPacket.startRecord();
         assertEquals("www.google.com.", dnsPacket.readRecordName());
@@ -64,7 +64,7 @@ public class DnsPacketReaderTest extends UsingFixture {
         message.addRecord(new ARecord(new Name("www.google.com."), DClass.IN, 60, Inet4Address.getByName("1.2.3.4")), Section.ANSWER);
         byte[] bytes = message.toWire();
         DnsPacketReader dnsPacket = new DnsPacketReader();
-        dnsPacket.setByteBuffer(ByteBuffer.wrap(bytes));
+        dnsPacket.byteBuffer(ByteBuffer.wrap(bytes));
         dnsPacket.skipHeader();
         dnsPacket.startRecord();
         assertEquals("www.google.com.", dnsPacket.readRecordName());
@@ -89,7 +89,7 @@ public class DnsPacketReaderTest extends UsingFixture {
         message.addRecord(new ARecord(new Name("www.google.com."), DClass.IN, 60, Inet4Address.getByName("1.2.3.4")), Section.ANSWER);
         byte[] bytes = message.toWire();
         DnsPacketReader dnsPacket = new DnsPacketReader();
-        dnsPacket.setByteBuffer(ByteBuffer.wrap(bytes));
+        dnsPacket.byteBuffer(ByteBuffer.wrap(bytes));
         dnsPacket.skipHeader();
         dnsPacket.startRecord();
         assertEquals("www.google.com.", dnsPacket.readRecordName());

@@ -52,7 +52,7 @@ public class DefaultScheduler extends Scheduler {
             boolean hasCancelled = false;
             while (hasDeadSelectorBooking()) {
                 SelectorBooking booking = selectorBookings.poll();
-                hasCancelled |= booking.cancelDeadTasks(getCurrentTimeMillis());
+                hasCancelled |= booking.cancelDeadTasks(currentTimeMillis());
             }
             if (hasCancelled) {
                 selector.selectNow(); // make the cancel happen
@@ -80,10 +80,10 @@ public class DefaultScheduler extends Scheduler {
         if (null == booking) {
             return false;
         }
-        return booking.getEarliestDeadline() < getCurrentTimeMillis();
+        return booking.earliestDeadline() < currentTimeMillis();
     }
 
-    protected long getCurrentTimeMillis() {
+    protected long currentTimeMillis() {
         return System.currentTimeMillis();
     }
 
@@ -111,7 +111,7 @@ public class DefaultScheduler extends Scheduler {
         if (null == booking) {
             return selector.select();
         } else {
-            long delta = booking.getEarliestDeadline() - getCurrentTimeMillis();
+            long delta = booking.earliestDeadline() - currentTimeMillis();
             if (delta > 0) {
                 return selector.select(delta);
             } else {
@@ -144,7 +144,7 @@ public class DefaultScheduler extends Scheduler {
             selectionKey.interestOps(selectionKey.interestOps() | SelectionKey.OP_ACCEPT);
         }
         SelectorBooking booking = (SelectorBooking) selectionKey.attachment();
-        booking.acceptBlocked(getCurrentTimeMillis() + timeout);
+        booking.acceptBlocked(currentTimeMillis() + timeout);
         return serverSocketChannel.accept();
     }
 
@@ -169,7 +169,7 @@ public class DefaultScheduler extends Scheduler {
             selectionKey.interestOps(selectionKey.interestOps() | SelectionKey.OP_READ);
         }
         SelectorBooking booking = (SelectorBooking) selectionKey.attachment();
-        booking.readBlocked(getCurrentTimeMillis() + timeout);
+        booking.readBlocked(currentTimeMillis() + timeout);
     }
 
     @Override
@@ -193,7 +193,7 @@ public class DefaultScheduler extends Scheduler {
             selectionKey.interestOps(selectionKey.interestOps() | SelectionKey.OP_WRITE);
         }
         SelectorBooking booking = (SelectorBooking) selectionKey.attachment();
-        booking.writeBlocked(getCurrentTimeMillis() + timeout);
+        booking.writeBlocked(currentTimeMillis() + timeout);
     }
 
     public void close() throws IOException {
@@ -215,7 +215,7 @@ public class DefaultScheduler extends Scheduler {
             selectionKey.interestOps(selectionKey.interestOps() | SelectionKey.OP_CONNECT);
         }
         SelectorBooking booking = (SelectorBooking) selectionKey.attachment();
-        booking.connectBlocked(getCurrentTimeMillis() + timeout);
+        booking.connectBlocked(currentTimeMillis() + timeout);
         if (!socketChannel.finishConnect()) {
             throw new RuntimeException("still not connected, after connect op unblocked");
         }

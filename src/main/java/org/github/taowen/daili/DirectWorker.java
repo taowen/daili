@@ -5,8 +5,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 // run task directly in scheduler thread
-public class ThreadlessWorker implements Worker {
-    private static final Logger LOGGER = LoggerFactory.getLogger(ThreadlessWorker.class);
+public class DirectWorker implements Worker {
+    private static final Logger LOGGER = LoggerFactory.getLogger(DirectWorker.class);
 
     @Override
     public void loop() {

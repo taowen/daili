@@ -18,7 +18,7 @@ public class TcpConnectTest extends UsingFixture {
                 @Override
                 public void execute() throws Pausable, Exception {
                     SocketChannel socketChannel = SocketChannel.open();
-                    getScheduler().connect(socketChannel, new InetSocketAddress(9090), 1000);
+                    scheduler().connect(socketChannel, new InetSocketAddress(9090), 1000);
                     exit("accepted");
                 }
             };

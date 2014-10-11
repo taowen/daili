@@ -3,12 +3,9 @@ package org.github.taowen.daili;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.xbill.DNS.Flags;
 import org.xbill.DNS.Header;
 import org.xbill.DNS.Message;
-import org.xbill.DNS.Section;
 
-import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
@@ -24,7 +21,7 @@ public class DnsPacketWriterTest extends UsingFixture {
         Header header = message.getHeader();
         DnsPacketWriter dnsPacket = new DnsPacketWriter();
         ByteBuffer byteBuffer = ByteBuffer.allocateDirect(8192);
-        dnsPacket.setByteBuffer(byteBuffer);
+        dnsPacket.byteBuffer(byteBuffer);
         dnsPacket.writeId(header.getID());
         dnsPacket.startFlags();
         dnsPacket.writeOpcode(header.getOpcode());

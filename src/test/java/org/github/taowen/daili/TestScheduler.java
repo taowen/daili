@@ -24,9 +24,9 @@ public class TestScheduler extends DefaultScheduler {
     }
 
     @Override
-    protected long getCurrentTimeMillis() {
+    protected long currentTimeMillis() {
         if (null == fixedCurrentTimeMillis) {
-            return super.getCurrentTimeMillis();
+            return super.currentTimeMillis();
         } else {
             return fixedCurrentTimeMillis;
         }

@@ -12,7 +12,7 @@ public class WaitUntilTest extends UsingFixture {
         DailiTask task = new DailiTask(scheduler) {
             @Override
             public void execute() throws Pausable, Exception {
-                Object val = getScheduler().waitUntil("hello", System.currentTimeMillis() + 1000);
+                Object val = scheduler().waitUntil("hello", System.currentTimeMillis() + 1000);
                 exit(val);
             }
         };

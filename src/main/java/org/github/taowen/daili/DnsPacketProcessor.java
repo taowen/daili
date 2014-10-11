@@ -106,7 +106,7 @@ public abstract class DnsPacketProcessor extends Task {
         yield();
     }
 
-    public void setByteBuffer(ByteBuffer byteBuffer) {
+    public void byteBuffer(ByteBuffer byteBuffer) {
         this.byteBuffer = byteBuffer;
     }
 

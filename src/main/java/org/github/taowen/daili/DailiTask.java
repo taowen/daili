@@ -4,12 +4,12 @@ import kilim.Task;
 
 public abstract class DailiTask extends Task {
 
-    private final static Worker THREADLESS_WORKER = new ThreadlessWorker();
+    private final static Worker DIRECT_WORKER = new DirectWorker();
     private final Scheduler scheduler;
     private final Worker worker;
 
     public DailiTask(Scheduler scheduler) {
-        this(scheduler, THREADLESS_WORKER);
+        this(scheduler, DIRECT_WORKER);
     }
 
     public DailiTask(Scheduler scheduler, Worker worker) {
@@ -17,7 +17,7 @@ public abstract class DailiTask extends Task {
         this.worker = worker;
     }
 
-    public Scheduler getScheduler() {
+    public Scheduler scheduler() {
         return scheduler;
     }
 

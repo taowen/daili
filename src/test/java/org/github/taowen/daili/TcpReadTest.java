@@ -19,10 +19,10 @@ public class TcpReadTest extends UsingFixture {
                 serverSocketChannel.socket().setReuseAddress(true);
                 serverSocketChannel.socket().bind(new InetSocketAddress(9090));
                 serverSocketChannel.configureBlocking(false);
-                SocketChannel channel = getScheduler().accept(serverSocketChannel, 1000);
+                SocketChannel channel = scheduler().accept(serverSocketChannel, 1000);
                 channel.configureBlocking(false);
                 ByteBuffer byteBuffer = ByteBuffer.allocateDirect(1024);
-                getScheduler().read(channel, byteBuffer, 1000);
+                scheduler().read(channel, byteBuffer, 1000);
                 ByteBuffer expected = ByteBuffer.wrap(new byte[]{1, 2, 3, 4});
                 exit(byteBuffer.flip().equals(expected));
             }

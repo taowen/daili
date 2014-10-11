@@ -20,10 +20,10 @@ public class TcpWriteTest extends UsingFixture {
                 serverSocketChannel.socket().setReuseAddress(true);
                 serverSocketChannel.socket().bind(new InetSocketAddress(9090));
                 serverSocketChannel.configureBlocking(false);
-                SocketChannel channel = getScheduler().accept(serverSocketChannel, 1000);
+                SocketChannel channel = scheduler().accept(serverSocketChannel, 1000);
                 channel.configureBlocking(false);
                 ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[]{1, 2, 3, 4});
-                getScheduler().write(channel, byteBuffer, 1000);
+                scheduler().write(channel, byteBuffer, 1000);
             }
         };
         task.run();

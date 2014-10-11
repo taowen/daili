@@ -18,13 +18,13 @@ public class Main {
                 channel.socket().bind(new InetSocketAddress(9090));
                 while (true) {
                     final ByteBuffer buffer = ByteBuffer.allocateDirect(8192);
-                    getScheduler().receive(channel, buffer, 60 * 1000);
-                    new DailiTask(getScheduler(), worker){
+                    scheduler().receive(channel, buffer, 60 * 1000);
+                    new DailiTask(scheduler(), worker){
                         @Override
                         public void execute() throws Pausable, Exception {
                             buffer.flip();
                             final DnsPacketReader dnsPacket = new DnsPacketReader();
-                            dnsPacket.setByteBuffer(buffer);
+                            dnsPacket.byteBuffer(buffer);
                             dnsPacket.readId();
                             dnsPacket.startFlags();
                             dnsPacket.endFlags();

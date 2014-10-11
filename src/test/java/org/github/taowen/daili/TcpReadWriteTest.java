@@ -20,12 +20,12 @@ public class TcpReadWriteTest extends UsingFixture {
                     serverSocketChannel.socket().setReuseAddress(true);
                     serverSocketChannel.socket().bind(new InetSocketAddress(9090));
                     serverSocketChannel.configureBlocking(false);
-                    SocketChannel channel = getScheduler().accept(serverSocketChannel, 1000);
+                    SocketChannel channel = scheduler().accept(serverSocketChannel, 1000);
                     channel.configureBlocking(false);
                     ByteBuffer byteBuffer = ByteBuffer.allocateDirect(1024);
                     while (true) {
                         try {
-                            getScheduler().read(channel, byteBuffer, 100);
+                            scheduler().read(channel, byteBuffer, 100);
                         } catch (TimeoutException e) {
                             ByteBuffer expected = ByteBuffer.wrap(new byte[]{1, 2, 3, 4, 5, 6, 7, 8});
                             byteBuffer.flip();
@@ -38,9 +38,9 @@ public class TcpReadWriteTest extends UsingFixture {
                 @Override
                 public void execute() throws Pausable, Exception {
                     SocketChannel channel = SocketChannel.open();
-                    getScheduler().connect(channel, new InetSocketAddress(9090), 1000);
-                    getScheduler().write(channel, ByteBuffer.wrap(new byte[]{1, 2, 3, 4}), 1000);
-                    getScheduler().write(channel, ByteBuffer.wrap(new byte[]{5, 6, 7, 8}), 1000);
+                    scheduler().connect(channel, new InetSocketAddress(9090), 1000);
+                    scheduler().write(channel, ByteBuffer.wrap(new byte[]{1, 2, 3, 4}), 1000);
+                    scheduler().write(channel, ByteBuffer.wrap(new byte[]{5, 6, 7, 8}), 1000);
                 }
             };
             serverTask.run();

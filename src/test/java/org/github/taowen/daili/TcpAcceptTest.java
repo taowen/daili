@@ -18,7 +18,7 @@ public class TcpAcceptTest extends UsingFixture {
                 serverSocketChannel.socket().setReuseAddress(true);
                 serverSocketChannel.socket().bind(new InetSocketAddress(9090));
                 serverSocketChannel.configureBlocking(false);
-                getScheduler().accept(serverSocketChannel, 1000);
+                scheduler().accept(serverSocketChannel, 1000);
                 exit("accepted");
             }
         };
@@ -36,7 +36,7 @@ public class TcpAcceptTest extends UsingFixture {
                 serverSocketChannel.socket().setReuseAddress(true);
                 serverSocketChannel.socket().bind(new InetSocketAddress(9090));
                 serverSocketChannel.configureBlocking(false);
-                getScheduler().accept(serverSocketChannel, 1000);
+                scheduler().accept(serverSocketChannel, 1000);
                 exit("accepted");
             }
         };
@@ -61,7 +61,7 @@ public class TcpAcceptTest extends UsingFixture {
                 serverSocketChannel.socket().bind(new InetSocketAddress(9090));
                 serverSocketChannel.configureBlocking(false);
                 try {
-                    getScheduler().accept(serverSocketChannel, 1000);
+                    scheduler().accept(serverSocketChannel, 1000);
                 } catch (TimeoutException e) {
                     exit("timeout");
                 }
@@ -85,11 +85,11 @@ public class TcpAcceptTest extends UsingFixture {
                 serverSocketChannel.socket().bind(new InetSocketAddress(8090));
                 serverSocketChannel.configureBlocking(false);
                 try {
-                    getScheduler().accept(serverSocketChannel, 1000);
+                    scheduler().accept(serverSocketChannel, 1000);
                 } catch (TimeoutException e) {
                     exitResult = "timeout";
                 }
-                getScheduler().accept(serverSocketChannel, 5000);
+                scheduler().accept(serverSocketChannel, 5000);
                 exit("done");
             }
         };
@@ -102,7 +102,7 @@ public class TcpAcceptTest extends UsingFixture {
                 serverSocketChannel.socket().bind(new InetSocketAddress(8091));
                 serverSocketChannel.configureBlocking(false);
                 try {
-                    getScheduler().accept(serverSocketChannel, 2000);
+                    scheduler().accept(serverSocketChannel, 2000);
                 } catch (RuntimeException e) {
                     exit("timeout");
                 }

@@ -184,7 +184,7 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
         }
     }
 
-    public long getEarliestDeadline() {
+    public long earliestDeadline() {
         return earliestDeadline;
     }
 
