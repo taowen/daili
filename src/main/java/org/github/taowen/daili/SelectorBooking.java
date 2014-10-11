@@ -17,13 +17,13 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
 
     private long earliestDeadline = Long.MAX_VALUE;
     private long readDeadline = Long.MAX_VALUE;
-    private Task readTask;
+    private Runnable readTask;
     private long writeDeadline = Long.MAX_VALUE;
-    private Task writeTask;
+    private Runnable writeTask;
     private long acceptDeadline = Long.MAX_VALUE;
-    private Task acceptTask;
+    private Runnable acceptTask;
     private long connectDeadline = Long.MAX_VALUE;
-    private Task connectTask;
+    private Runnable connectTask;
 
     public SelectorBooking(Queue<SelectorBooking> bookings, SelectionKey selectionKey) {
         this.bookings = bookings;
@@ -86,10 +86,10 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
         }
     }
 
-    public List<Task> ioUnblocked() {
-        List<Task> tasks = new ArrayList<Task>();
+    public List<Runnable> ioUnblocked() {
+        List<Runnable> tasks = new ArrayList<Runnable>();
         if (selectionKey.isAcceptable()) {
-            Task taskUnblocked = acceptUnblocked();
+            Runnable taskUnblocked = acceptUnblocked();
             if (null == taskUnblocked) {
                 selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_ACCEPT);
             } else {
@@ -97,7 +97,7 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
             }
         }
         if (selectionKey.isConnectable()) {
-            Task taskUnblocked = connectUnblocked();
+            Runnable taskUnblocked = connectUnblocked();
             if (null == taskUnblocked) {
                 selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_CONNECT);
             } else {
@@ -105,7 +105,7 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
             }
         }
         if (selectionKey.isReadable()) {
-            Task taskUnblocked = readUnblocked();
+            Runnable taskUnblocked = readUnblocked();
             if (null == taskUnblocked) {
                 selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_READ);
             } else {
@@ -113,7 +113,7 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
             }
         }
         if (selectionKey.isWritable()) {
-            Task taskUnblocked = writeUnblocked();
+            Runnable taskUnblocked = writeUnblocked();
             if (null == taskUnblocked) {
                 selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_WRITE);
             } else {
@@ -126,32 +126,32 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
         return tasks;
     }
 
-    private Task readUnblocked() {
-        Task unblocked = readTask;
+    private Runnable readUnblocked() {
+        Runnable unblocked = readTask;
         readDeadline = Long.MAX_VALUE;
         updateDeadline();
         readTask = null;
         return unblocked;
     }
 
-    private Task connectUnblocked() {
-        Task unblocked = connectTask;
+    private Runnable connectUnblocked() {
+        Runnable unblocked = connectTask;
         connectDeadline = Long.MAX_VALUE;
         updateDeadline();
         connectTask = null;
         return unblocked;
     }
 
-    private Task acceptUnblocked() {
-        Task unblocked = acceptTask;
+    private Runnable acceptUnblocked() {
+        Runnable unblocked = acceptTask;
         acceptDeadline = Long.MAX_VALUE;
         updateDeadline();
         acceptTask = null;
         return unblocked;
     }
 
-    private Task writeUnblocked() {
-        Task unblocked = writeTask;
+    private Runnable writeUnblocked() {
+        Runnable unblocked = writeTask;
         writeDeadline = Long.MAX_VALUE;
         updateDeadline();
         writeTask = null;
@@ -241,9 +241,5 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
             return 1;
         }
         return 0;
-    }
-
-    public boolean hasPendingTask() {
-        return Long.MAX_VALUE != earliestDeadline;
     }
 }

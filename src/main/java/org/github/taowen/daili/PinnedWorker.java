@@ -9,7 +9,7 @@ import java.util.concurrent.BlockingQueue;
 
 public class PinnedWorker implements Worker, Runnable {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(Main.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(PinnedWorker.class);
     private final BlockingQueue<Task> readyTasks = new ArrayBlockingQueue<Task>(1024);
 
     @Override
