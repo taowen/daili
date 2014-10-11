@@ -29,7 +29,7 @@ public abstract class Scheduler {
 
     public abstract int send(DatagramChannel channel, ByteBuffer byteBuffer, InetSocketAddress target, int timeout) throws IOException, TimeoutException, Pausable;
 
-    public abstract Object waitUntil(String eventName, long deadline) throws Pausable;
+    public abstract Object waitUntil(String eventName, long deadline) throws Pausable, TimeoutException;
 
     public abstract void trigger(String eventName, Object eventData) throws Pausable;
 }

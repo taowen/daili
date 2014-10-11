@@ -17,8 +17,9 @@ import java.util.concurrent.TimeoutException;
 public class DefaultScheduler extends Scheduler {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultScheduler.class);
     protected Selector selector;
-    private Queue<SelectorBooking> selectorBookings = new PriorityQueue<SelectorBooking>();
-    private Map<String, List<EventBooking>> eventBookings = new HashMap<String, List<EventBooking>>();
+    private Queue<Booking> sortedBookings = new PriorityQueue<Booking>();
+    private Map<String, List<EventBooking>> eventMap = new HashMap<String, List<EventBooking>>();
+    private List<Runnable> readyTasks = new ArrayList<Runnable>();
     // externalTasks is the only entrance to the scheduler thread
     private Queue<Task> externalTasks = new ConcurrentLinkedQueue<Task>();
 
@@ -34,7 +35,7 @@ public class DefaultScheduler extends Scheduler {
     }
 
     private SelectorBooking addSelectorBooking(SelectionKey selectionKey) {
-        return new SelectorBooking(selectorBookings, selectionKey);
+        return new SelectorBooking(sortedBookings, selectionKey);
     }
 
     @Override
@@ -51,7 +52,7 @@ public class DefaultScheduler extends Scheduler {
             ioUnblocked(iterator);
             boolean hasCancelled = false;
             while (hasDeadSelectorBooking()) {
-                SelectorBooking booking = selectorBookings.poll();
+                Booking booking = sortedBookings.poll();
                 hasCancelled |= booking.cancelDeadTasks(currentTimeMillis());
             }
             if (hasCancelled) {
@@ -76,11 +77,11 @@ public class DefaultScheduler extends Scheduler {
     }
 
     private boolean hasDeadSelectorBooking() {
-        SelectorBooking booking = selectorBookings.peek();
+        Booking booking = sortedBookings.peek();
         if (null == booking) {
             return false;
         }
-        return booking.earliestDeadline() < currentTimeMillis();
+        return booking.deadline() < currentTimeMillis();
     }
 
     protected long currentTimeMillis() {
@@ -88,7 +89,8 @@ public class DefaultScheduler extends Scheduler {
     }
 
     private void ioUnblocked(Iterator<SelectionKey> iterator) {
-        List<Runnable> readyTasks = new ArrayList<Runnable>();
+        List<Runnable> readyTasks = new ArrayList<Runnable>(this.readyTasks);
+        this.readyTasks.clear();
         while (iterator.hasNext()) {
             SelectionKey selectionKey = iterator.next();
             iterator.remove();
@@ -107,11 +109,11 @@ public class DefaultScheduler extends Scheduler {
     }
 
     protected int doSelect() throws IOException {
-        SelectorBooking booking = selectorBookings.peek();
+        Booking booking = sortedBookings.peek();
         if (null == booking) {
             return selector.select();
         } else {
-            long delta = booking.earliestDeadline() - currentTimeMillis();
+            long delta = booking.deadline() - currentTimeMillis();
             if (delta > 0) {
                 return selector.select(delta);
             } else {
@@ -123,8 +125,12 @@ public class DefaultScheduler extends Scheduler {
     private void switchToMyThread() throws Pausable {
         externalTasks.add(Task.getCurrentTask());
         selector.wakeup();
+        // =========== END WORKER THREAD =========
+
         Task.yield();
-        // should run in scheduler thread now
+
+        // =========== BEGIN SCHEDULER THREAD =========
+        // ...
     }
 
     @Override
@@ -183,7 +189,12 @@ public class DefaultScheduler extends Scheduler {
     }
 
     private void writeBlocked(SelectableChannel channel, int timeout) throws ClosedChannelException, Pausable, TimeoutException {
+        // ...
+        // =========== END WORKER THREAD =========
+
         switchToMyThread();
+
+        // =========== BEGIN SCHEDULER THREAD =========
         SelectionKey selectionKey = channel.keyFor(selector);
         if (null == selectionKey) {
             selectionKey = channel.register(selector, SelectionKey.OP_WRITE);
@@ -193,7 +204,12 @@ public class DefaultScheduler extends Scheduler {
             selectionKey.interestOps(selectionKey.interestOps() | SelectionKey.OP_WRITE);
         }
         SelectorBooking booking = (SelectorBooking) selectionKey.attachment();
+        // =========== END SCHEDULER THREAD =========
+
         booking.writeBlocked(currentTimeMillis() + timeout);
+
+        // =========== BEGIN WORKER THREAD =========
+        // ...
     }
 
     public void close() throws IOException {
@@ -237,37 +253,57 @@ public class DefaultScheduler extends Scheduler {
         if (bytesCount > 0) {
             return bytesCount;
         }
-        writeBlocked(channel, timeout);
+        // =========== END WORKER THREAD =========
+
+        writeBlocked(channel, timeout); // switched to scheduler thread inside
+
+        // =========== BEGIN WORKER THREAD =========
         return channel.send(byteBuffer, target);
     }
 
     @Override
-    public Object waitUntil(String eventName, long deadline) throws Pausable {
+    public Object waitUntil(String eventName, long deadline) throws Pausable, TimeoutException {
+        // =========== END WORKER THREAD =========
+
         switchToMyThread();
-        List<EventBooking> bookings = eventBookings.get(eventName);
-        if (null == bookings) {
-            bookings = new ArrayList<EventBooking>(2);
-            eventBookings.put(eventName, bookings);
+
+        // =========== BEGIN SCHEDULER THREAD =========
+        List<EventBooking> eventBookings = eventMap.get(eventName);
+        if (null == eventBookings) {
+            eventBookings = new ArrayList<EventBooking>(2);
+            eventMap.put(eventName, eventBookings);
         }
-        EventBooking booking = new EventBooking(eventName, Task.getCurrentTask(), deadline);
-        bookings.add(booking);
+        EventBooking booking = new EventBooking(eventBookings, eventName, deadline, Task.getCurrentTask());
+        if (!sortedBookings.add(booking)) {
+            throw new RuntimeException("failed to add booking: " + this);
+        }
         selector.wakeup();
-        Task.pause(booking);
-        return booking.eventData;
+        // =========== END SCHEDULER THREAD =========
+
+        return booking.blocked();
+
+        // =========== BEGIN WORKER THREAD =========
+        // ...
     }
 
     @Override
     public void trigger(final String eventName, final Object eventData) throws Pausable {
+        // =========== END WORKER THREAD =========
+
         switchToMyThread();
-        List<EventBooking> bookings = eventBookings.remove(eventName);
+
+        // =========== BEGIN SCHEDULER THREAD =========
+        List<EventBooking> bookings = eventMap.remove(eventName);
         for (EventBooking booking : bookings) {
-            booking.eventData = eventData;
-            Runnable task = booking.task();
-            try {
-                task.run();
-            } catch (Exception e) {
-                LOGGER.error("failed to run task: " + task, e);
-            }
+            sortedBookings.remove(booking);
+            booking.trigger(eventData);
         }
+        readyTasks.add(Task.getCurrentTask());
+        // =========== END SCHEDULER THREAD =========
+
+        Task.yield();
+
+        // =========== BEGIN WORKER THREAD =========
+        // ...
     }
 }

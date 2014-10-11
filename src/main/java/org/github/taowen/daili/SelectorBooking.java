@@ -3,6 +3,8 @@ package org.github.taowen.daili;
 import kilim.Pausable;
 import kilim.PauseReason;
 import kilim.Task;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.channels.SelectionKey;
 import java.util.ArrayList;
@@ -10,9 +12,11 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.TimeoutException;
 
-class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
+class SelectorBooking extends Booking {
 
-    private final Queue<SelectorBooking> bookings;
+    private static final Logger LOGGER = LoggerFactory.getLogger(SelectorBooking.class);
+
+    private final Queue<Booking> bookings;
     private final SelectionKey selectionKey;
 
     private long earliestDeadline = Long.MAX_VALUE;
@@ -25,7 +29,7 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
     private long connectDeadline = Long.MAX_VALUE;
     private Runnable connectTask;
 
-    public SelectorBooking(Queue<SelectorBooking> bookings, SelectionKey selectionKey) {
+    public SelectorBooking(Queue<Booking> bookings, SelectionKey selectionKey) {
         this.bookings = bookings;
         this.selectionKey = selectionKey;
     }
@@ -37,7 +41,11 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
         readDeadline = deadline;
         updateDeadline();
         readTask = Task.getCurrentTask();
+        // =========== END SCHEDULER THREAD =========
+
         Task.pause(this);
+
+        // =========== BEGIN WORKER THREAD =========
         if (readDeadline == -1) {
             readUnblocked();
             throw new TimeoutException();
@@ -51,7 +59,11 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
         writeDeadline = deadline;
         updateDeadline();
         writeTask = Task.getCurrentTask();
+        // =========== END SCHEDULER THREAD =========
+
         Task.pause(this);
+
+        // =========== BEGIN WORKER THREAD =========
         if (writeDeadline == -1) {
             writeUnblocked();
             throw new TimeoutException();
@@ -65,7 +77,11 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
         acceptDeadline = deadline;
         updateDeadline();
         acceptTask = Task.getCurrentTask();
+        // =========== END SCHEDULER THREAD =========
+
         Task.pause(this);
+
+        // =========== BEGIN WORKER THREAD =========
         if (acceptDeadline == -1) {
             acceptUnblocked();
             throw new TimeoutException();
@@ -79,7 +95,11 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
         connectDeadline = deadline;
         updateDeadline();
         connectTask = Task.getCurrentTask();
+        // =========== END SCHEDULER THREAD =========
+
         Task.pause(this);
+
+        // =========== BEGIN WORKER THREAD =========
         if (connectDeadline == -1) {
             connectUnblocked();
             throw new TimeoutException();
@@ -184,7 +204,7 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
         }
     }
 
-    public long earliestDeadline() {
+    public long deadline() {
         return earliestDeadline;
     }
 
@@ -193,37 +213,25 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
             selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_READ);
             readDeadline = -1;
             updateDeadline();
-            readTask.run();
-            if (-1 == readDeadline) {
-                throw new RuntimeException("read deadline unhandled");
-            }
+            runTask(readTask);
         }
         if (writeDeadline > 0 && currentTimeMillis > writeDeadline) {
             selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_WRITE);
             writeDeadline = -1;
             updateDeadline();
-            writeTask.run();
-            if (-1 == writeDeadline) {
-                throw new RuntimeException("write deadline unhandled");
-            }
+            runTask(writeTask);
         }
         if (acceptDeadline > 0 && currentTimeMillis > acceptDeadline) {
             selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_ACCEPT);
             acceptDeadline = -1;
             updateDeadline();
-            acceptTask.run();
-            if (-1 == acceptDeadline) {
-                throw new RuntimeException("accept deadline unhandled");
-            }
+            runTask(acceptTask);
         }
         if (connectDeadline > 0 && currentTimeMillis > connectDeadline) {
             selectionKey.interestOps(selectionKey.interestOps() & ~SelectionKey.OP_CONNECT);
             connectDeadline = -1;
             updateDeadline();
-            connectTask.run();
-            if (-1 == connectDeadline) {
-                throw new AssertionError("connect deadline unhandled");
-            }
+            runTask(connectTask);
         }
         if (0 == selectionKey.interestOps()) {
             selectionKey.cancel();
@@ -232,14 +240,11 @@ class SelectorBooking implements PauseReason, Comparable<SelectorBooking> {
         return false;
     }
 
-    @Override
-    public int compareTo(SelectorBooking that) {
-        long delta = that.earliestDeadline - this.earliestDeadline;
-        if (delta > 0) {
-            return -1;
-        } else if (delta < 0) {
-            return 1;
+    private void runTask(Runnable task) {
+        try {
+            task.run();
+        } catch (Exception e) {
+            LOGGER.info("failed to run task: " + task, e);
         }
-        return 0;
     }
 }
