@@ -40,6 +40,8 @@ public abstract class DnsPacketProcessor extends Task {
         assert Field.START_FLAGS == currentField;
         pass();
         processFlags();
+        assert Field.END_FLGAS == currentField;
+        pass();
         assert Field.QUESTION_RECORDS_COUNT == currentField;
         int questionRecordsCount = processQuestionRecordsCount();
         assert Field.ANSWER_RECORDS_COUNT == currentField;

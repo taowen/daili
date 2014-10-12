@@ -179,7 +179,6 @@ public class DnsPacketReader extends DnsPacketProcessor {
                     throw new RuntimeException("unexpected field: " + currentField);
             }
         }
-        pass();
     }
 
     private boolean getFlag(int flags, int bit) {

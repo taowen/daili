@@ -94,7 +94,6 @@ public class DnsPacketWriter extends DnsPacketProcessor {
     protected void processFlags() throws Pausable {
         int flags = 0;
         while (Field.END_FLGAS != currentField) {
-            int bit = -1;
             switch (currentField) {
                 case OPCODE:
                     flags &= 0x87FF;
@@ -102,31 +101,32 @@ public class DnsPacketWriter extends DnsPacketProcessor {
                     pass();
                     break;
                 case FLAG_QR:
-                    bit = 0;
+                    flags = setFlag(flags, 0);
                     break;
                 case FLAG_AA:
-                    bit = 5;
+                    flags = setFlag(flags, 5);
                     break;
                 case FLAG_TC:
-                    bit = 6;
+                    flags = setFlag(flags, 6);
                     break;
                 case FLAG_RD:
-                    bit = 7;
+                    flags = setFlag(flags, 7);
                     break;
                 default:
                     throw new RuntimeException("unexpected field: " + currentField);
             }
-            if (bit >= 0) {
-                if (fieldBooleanValue) {
-                    flags |= (1 << (15 - bit));
-                } else {
-                    flags &= ~(1 << (15 - bit));
-                }
-                pass();
-            }
         }
         byteBuffer.putShort((short) (flags & 0xFFFF));
+    }
+
+    private int setFlag(int flags, int bit) throws Pausable {
+        if (fieldBooleanValue) {
+            flags |= (1 << (15 - bit));
+        } else {
+            flags &= ~(1 << (15 - bit));
+        }
         pass();
+        return flags;
     }
 
     public void writeId(int id) {
