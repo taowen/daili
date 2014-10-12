@@ -34,4 +34,6 @@ public abstract class Scheduler {
     public abstract Object waitUntil(String eventName, long deadline) throws Pausable, TimeoutException;
 
     public abstract void trigger(String eventName, Object eventData) throws Pausable;
+
+    public abstract void sleepUntil(long deadline) throws Pausable;
 }

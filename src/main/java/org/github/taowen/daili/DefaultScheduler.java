@@ -224,7 +224,6 @@ public class DefaultScheduler extends Scheduler {
         if (!sortedBookings.add(booking)) {
             throw new RuntimeException("failed to add booking: " + this);
         }
-        selector.wakeup();
         // =========== END SCHEDULER THREAD =========
 
         return booking.blocked();
@@ -244,6 +243,25 @@ public class DefaultScheduler extends Scheduler {
         // =========== END SCHEDULER THREAD =========
 
         switchToWorkerThread();
+
+        // =========== BEGIN WORKER THREAD =========
+        // ...
+    }
+
+    @Override
+    public void sleepUntil(long deadline) throws Pausable {
+        // =========== END WORKER THREAD =========
+
+        switchToSchedulerThread();
+
+        // =========== BEGIN SCHEDULER THREAD =========
+        SleepBooking booking = new SleepBooking(deadline, Task.getCurrentTask());
+        if (!sortedBookings.add(booking)) {
+            throw new RuntimeException("failed to add booking: " + this);
+        }
+        // =========== END SCHEDULER THREAD =========
+
+        Task.yield();
 
         // =========== BEGIN WORKER THREAD =========
         // ...

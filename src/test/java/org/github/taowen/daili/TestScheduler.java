@@ -13,7 +13,7 @@ public class TestScheduler extends DefaultScheduler {
             @Override
             public void execute() throws Pausable, Exception {
                 yield();
-                exit();
+                TestScheduler.this.exit();
             }
         };
     }

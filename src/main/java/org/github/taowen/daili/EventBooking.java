@@ -32,14 +32,12 @@ class EventBooking extends Booking {
 
     @Override
     public boolean cancelDeadTasks(long currentTimeMillis) {
-        if (deadline < currentTimeMillis) {
-            eventBookings.remove(this);
-            deadline = -1;
-            try {
-                task.run();
-            } catch (Exception e) {
-                LOGGER.error("failed to run task: " + task, e);
-            }
+        eventBookings.remove(this);
+        deadline = -1;
+        try {
+            task.run();
+        } catch (Exception e) {
+            LOGGER.error("failed to run task: " + task, e);
         }
         return false; // do not need to run extra selector.selectNow()
     }
