@@ -19,9 +19,9 @@ public class DefaultScheduler extends Scheduler {
     protected Selector selector;
     private Queue<Booking> sortedBookings = new PriorityQueue<Booking>();
     private Map<String, List<EventBooking>> eventMap = new HashMap<String, List<EventBooking>>();
-    private List<Runnable> readyTasks = new ArrayList<Runnable>();
-    // externalTasks is the only entrance to the scheduler thread
-    private Queue<Task> externalTasks = new ConcurrentLinkedQueue<Task>();
+    private List<Task> outgoingTasks = new ArrayList<Task>();
+    // incomingTasks is the only entrance to the scheduler thread
+    private Queue<Task> incomingTasks = new ConcurrentLinkedQueue<Task>();
 
     public DefaultScheduler() {
         try {
@@ -46,18 +46,12 @@ public class DefaultScheduler extends Scheduler {
 
     boolean loopOnce() {
         try {
-            executeExternalTasks();
             doSelect();
             Iterator<SelectionKey> iterator = selector.selectedKeys().iterator();
-            ioUnblocked(iterator);
-            boolean hasCancelled = false;
-            while (hasDeadSelectorBooking()) {
-                Booking booking = sortedBookings.poll();
-                hasCancelled |= booking.cancelDeadTasks(currentTimeMillis());
-            }
-            if (hasCancelled) {
-                selector.selectNow(); // make the cancel happen
-            }
+            pushIoReadyTasks(iterator);
+            pullIncomingTasks();
+            pushOutgoingTasks();
+            cancelDeadTasks();
             return true;
         } catch (Exception e) {
             LOGGER.error("loop died", e);
@@ -65,14 +59,14 @@ public class DefaultScheduler extends Scheduler {
         }
     }
 
-    private void executeExternalTasks() {
-        Task task;
-        while ((task = externalTasks.poll()) != null) {
-            try {
-                task._runExecute();
-            } catch (Exception e) {
-                LOGGER.error("failed to execute external task: " + task, e);
-            }
+    private void cancelDeadTasks() throws IOException {
+        boolean hasCancelled = false;
+        while (hasDeadSelectorBooking()) {
+            Booking booking = sortedBookings.poll();
+            hasCancelled |= booking.cancelDeadTasks(currentTimeMillis());
+        }
+        if (hasCancelled) {
+            selector.selectNow(); // make the cancel happen
         }
     }
 
@@ -86,26 +80,6 @@ public class DefaultScheduler extends Scheduler {
 
     protected long currentTimeMillis() {
         return System.currentTimeMillis();
-    }
-
-    private void ioUnblocked(Iterator<SelectionKey> iterator) {
-        List<Runnable> readyTasks = new ArrayList<Runnable>(this.readyTasks);
-        this.readyTasks.clear();
-        while (iterator.hasNext()) {
-            SelectionKey selectionKey = iterator.next();
-            iterator.remove();
-            SelectorBooking selectorBooking = (SelectorBooking) selectionKey.attachment();
-            for (Runnable task : selectorBooking.ioUnblocked()) {
-                readyTasks.add(task);
-            }
-        }
-        for (Runnable readyTask : readyTasks) {
-            try {
-                readyTask.run();
-            } catch (Exception e) {
-                LOGGER.error("failed to run task: " + readyTask, e);
-            }
-        }
     }
 
     protected int doSelect() throws IOException {
@@ -122,8 +96,8 @@ public class DefaultScheduler extends Scheduler {
         }
     }
 
-    private void switchToMyThread() throws Pausable {
-        externalTasks.add(Task.getCurrentTask());
+    private void switchToSchedulerThread() throws Pausable {
+        incomingTasks.add(Task.getCurrentTask());
         selector.wakeup();
         // =========== END WORKER THREAD =========
 
@@ -133,13 +107,23 @@ public class DefaultScheduler extends Scheduler {
         // ...
     }
 
+    private void switchToWorkerThread() throws Pausable {
+        outgoingTasks.add(Task.getCurrentTask()); // assume it will consumed
+        // =========== END SCHEDULER THREAD =========
+
+        Task.yield();
+
+        // =========== BEGIN WORKER THREAD =========
+        // ...
+    }
+
     @Override
     public SocketChannel accept(ServerSocketChannel serverSocketChannel, int timeout) throws IOException, Pausable, TimeoutException {
         SocketChannel socketChannel = serverSocketChannel.accept();
         if (null != socketChannel) {
             return socketChannel;
         }
-        switchToMyThread();
+        switchToSchedulerThread();
         SelectionKey selectionKey = serverSocketChannel.keyFor(selector);
         if (null == selectionKey) {
             selectionKey = serverSocketChannel.register(selector, 0);
@@ -165,7 +149,7 @@ public class DefaultScheduler extends Scheduler {
     }
 
     private void readBlocked(SelectableChannel channel, int timeout) throws ClosedChannelException, Pausable, TimeoutException {
-        switchToMyThread();
+        switchToSchedulerThread();
         SelectionKey selectionKey = channel.keyFor(selector);
         if (null == selectionKey) {
             selectionKey = channel.register(selector, SelectionKey.OP_READ);
@@ -192,7 +176,7 @@ public class DefaultScheduler extends Scheduler {
         // ...
         // =========== END WORKER THREAD =========
 
-        switchToMyThread();
+        switchToSchedulerThread();
 
         // =========== BEGIN SCHEDULER THREAD =========
         SelectionKey selectionKey = channel.keyFor(selector);
@@ -221,7 +205,7 @@ public class DefaultScheduler extends Scheduler {
         if (socketChannel.connect(remote)) {
             return;
         }
-        switchToMyThread();
+        switchToSchedulerThread();
         SelectionKey selectionKey = socketChannel.keyFor(selector);
         if (null == selectionKey) {
             selectionKey = socketChannel.register(selector, SelectionKey.OP_CONNECT);
@@ -265,7 +249,7 @@ public class DefaultScheduler extends Scheduler {
     public Object waitUntil(String eventName, long deadline) throws Pausable, TimeoutException {
         // =========== END WORKER THREAD =========
 
-        switchToMyThread();
+        switchToSchedulerThread();
 
         // =========== BEGIN SCHEDULER THREAD =========
         List<EventBooking> eventBookings = eventMap.get(eventName);
@@ -290,20 +274,72 @@ public class DefaultScheduler extends Scheduler {
     public void trigger(final String eventName, final Object eventData) throws Pausable {
         // =========== END WORKER THREAD =========
 
-        switchToMyThread();
+        switchToSchedulerThread();
 
+        // =========== BEGIN SCHEDULER THREAD =========
+        pushEventReadyTasks(eventName, eventData);
+        // =========== END SCHEDULER THREAD =========
+
+        switchToWorkerThread();
+
+        // =========== BEGIN WORKER THREAD =========
+        // ...
+    }
+
+    private void pullIncomingTasks() {
+        // =========== BEGIN SCHEDULER THREAD =========
+        Task task;
+        while ((task = incomingTasks.poll()) != null) {
+            try {
+                task._runExecute();
+            } catch (Exception e) {
+                LOGGER.error("failed to execute external task: " + task, e);
+            }
+        }
+        // =========== END SCHEDULER THREAD =========
+    }
+
+    private void pushOutgoingTasks() {
+        // =========== BEGIN SCHEDULER THREAD =========
+        for (Task task : outgoingTasks) {
+            try {
+                task.run();
+            } catch (Exception e) {
+                LOGGER.error("failed to run task: " + task, e);
+            }
+        }
+        outgoingTasks.clear();
+        // =========== END SCHEDULER THREAD =========
+    }
+
+    private void pushEventReadyTasks(String eventName, Object eventData) {
         // =========== BEGIN SCHEDULER THREAD =========
         List<EventBooking> bookings = eventMap.remove(eventName);
         for (EventBooking booking : bookings) {
             sortedBookings.remove(booking);
             booking.trigger(eventData);
         }
-        readyTasks.add(Task.getCurrentTask());
         // =========== END SCHEDULER THREAD =========
+    }
 
-        Task.yield();
-
-        // =========== BEGIN WORKER THREAD =========
-        // ...
+    private void pushIoReadyTasks(Iterator<SelectionKey> iterator) {
+        // =========== BEGIN SCHEDULER THREAD =========
+        List<Runnable> readyTasks = new ArrayList<Runnable>();
+        while (iterator.hasNext()) {
+            SelectionKey selectionKey = iterator.next();
+            iterator.remove();
+            SelectorBooking selectorBooking = (SelectorBooking) selectionKey.attachment();
+            for (Runnable task : selectorBooking.ioUnblocked()) {
+                readyTasks.add(task);
+            }
+        }
+        for (Runnable readyTask : readyTasks) {
+            try {
+                readyTask.run();
+            } catch (Exception e) {
+                LOGGER.error("failed to run task: " + readyTask, e);
+            }
+        }
+        // =========== END SCHEDULER THREAD =========
     }
 }

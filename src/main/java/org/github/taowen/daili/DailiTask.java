@@ -2,6 +2,7 @@ package org.github.taowen.daili;
 
 import kilim.Task;
 
+// a task switched between scheduler and worker threads to get it's job done
 public abstract class DailiTask extends Task {
 
     private final static Worker DIRECT_WORKER = new DirectWorker();

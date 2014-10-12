@@ -21,7 +21,7 @@ public class WaitUntilTest extends UsingFixture {
         };
         task.run();
         assertThat((String) task.exitResult, not("world"));
-        new Task() {
+        new DailiTask(scheduler) {
             @Override
             public void execute() throws Pausable, Exception {
                 scheduler.trigger("hello", "world");
