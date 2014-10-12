@@ -3,8 +3,10 @@ package org.github.taowen.daili;
 import kilim.Pausable;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.charset.Charset;
 
 public class DnsPacketReader extends DnsPacketProcessor {
 
@@ -79,6 +81,18 @@ public class DnsPacketReader extends DnsPacketProcessor {
     }
 
     public String readRecordName() {
+        StringBuilder buf = new StringBuilder();
+        while(true) {
+            String label = readRecordNameLabel();
+            if (null == label) {
+                return buf.toString();
+            }
+            buf.append(label);
+            buf.append(".");
+        }
+    }
+
+    private String readRecordNameLabel() {
         currentField = Field.RECORD_NAME;
         run();
         return fieldStringValue;
@@ -158,6 +172,9 @@ public class DnsPacketReader extends DnsPacketProcessor {
                 case FLAG_TC:
                     pass(getFlag(flags, 6));
                     break;
+                case FLAG_RD:
+                    pass(getFlag(flags, 7));
+                    break;
                 default:
                     throw new RuntimeException("unexpected field: " + currentField);
             }
@@ -206,7 +223,6 @@ public class DnsPacketReader extends DnsPacketProcessor {
 
     @Override
     protected void processRecordName() throws IOException, Pausable {
-        StringBuffer buf = new StringBuffer();
         int savePoint = -1;
         int first = byteBuffer.position();
         while (true)
@@ -214,14 +230,15 @@ public class DnsPacketReader extends DnsPacketProcessor {
             int len = byteBuffer.get();
             if (len == 0)
             {
+                fieldStringValue = null;
+                pass();
                 break;
             }
             switch (len & 0xC0)
             {
                 case 0x00:
                     //buf.append("[" + off + "]");
-                    readUTF(buf, len);
-                    buf.append('.');
+                    pass(readUTF(len));
                     break;
                 case 0xC0:
                     //buf.append("<" + (off - 1) + ">");
@@ -237,48 +254,18 @@ public class DnsPacketReader extends DnsPacketProcessor {
                     first = byteBuffer.position();
                     break;
                 default:
-                    throw new IOException("bad domain name: '" + buf + "' at " + byteBuffer.position());
+                    throw new IOException("bad domain name: at " + byteBuffer.position());
             }
         }
         if (savePoint >= 0) {
             byteBuffer.position(savePoint);
         }
-        pass(buf.toString());
     }
 
-    private void readUTF(StringBuffer buf, int len)
-    {
-        for (int end = byteBuffer.position() + len; byteBuffer.position() < end;)
-        {
-            int ch = byteBuffer.get();
-            switch (ch >> 4)
-            {
-                case 0:
-                case 1:
-                case 2:
-                case 3:
-                case 4:
-                case 5:
-                case 6:
-                case 7:
-                    // 0xxxxxxx
-                    break;
-                case 12:
-                case 13:
-                    // 110x xxxx   10xx xxxx
-                    ch = ((ch & 0x1F) << 6) | (byteBuffer.get() & 0x3F);
-                    break;
-                case 14:
-                    // 1110 xxxx  10xx xxxx  10xx xxxx
-                    ch = ((ch & 0x0f) << 12) | ((byteBuffer.get() & 0x3F) << 6) | (byteBuffer.get() & 0x3F);
-                    break;
-                default:
-                    // 10xx xxxx,  1111 xxxx
-                    ch = ((ch & 0x3F) << 4) | (byteBuffer.get() & 0x0f);
-                    break;
-            }
-            buf.append((char) ch);
-        }
+    private String readUTF(int len) throws UnsupportedEncodingException {
+        byte[] bytes = new byte[len];
+        byteBuffer.get(bytes);
+        return new String(bytes, "UTF8");
     }
 
     protected void pass(long val) throws Pausable {

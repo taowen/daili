@@ -7,6 +7,8 @@ import java.io.IOException;
 public class DnsPacketWriter extends DnsPacketProcessor {
 
     protected int fieldIntValue;
+    protected boolean fieldBooleanValue;
+    protected String fieldStringValue;
 
     @Override
     protected void processRecordInetAddress() throws Pausable {
@@ -30,17 +32,30 @@ public class DnsPacketWriter extends DnsPacketProcessor {
 
     @Override
     protected void processRecordDClass() throws Pausable {
-        throw new UnsupportedOperationException();
+        byteBuffer.putShort((short) (fieldIntValue & 0xFFFF));
+        pass();
     }
 
     @Override
     protected void processRecordType() throws Pausable {
-        throw new UnsupportedOperationException();
+        byteBuffer.putShort((short) (fieldIntValue & 0xFFFF));
+        pass();
     }
 
     @Override
     protected void processRecordName() throws IOException, Pausable {
-        throw new UnsupportedOperationException();
+        while (true) {
+            assert Field.RECORD_NAME == currentField;
+            if (null == fieldStringValue) {
+                byteBuffer.put((byte) 0);
+                pass();
+                return;
+            }
+            byte[] bytes = fieldStringValue.getBytes("UTF8");
+            byteBuffer.put((byte)bytes.length);
+            byteBuffer.put(bytes);
+            pass();
+        }
     }
 
     @Override
@@ -77,8 +92,40 @@ public class DnsPacketWriter extends DnsPacketProcessor {
 
     @Override
     protected void processFlags() throws Pausable {
-        assert Field.END_FLGAS == currentField;
-        byteBuffer.putShort((short) (fieldIntValue & 0xFFFF));
+        int flags = 0;
+        while (Field.END_FLGAS != currentField) {
+            int bit = -1;
+            switch (currentField) {
+                case OPCODE:
+                    flags &= 0x87FF;
+                    flags |= (fieldIntValue << 11);
+                    pass();
+                    break;
+                case FLAG_QR:
+                    bit = 0;
+                    break;
+                case FLAG_AA:
+                    bit = 5;
+                    break;
+                case FLAG_TC:
+                    bit = 6;
+                    break;
+                case FLAG_RD:
+                    bit = 7;
+                    break;
+                default:
+                    throw new RuntimeException("unexpected field: " + currentField);
+            }
+            if (bit >= 0) {
+                if (fieldBooleanValue) {
+                    flags |= (1 << (15 - bit));
+                } else {
+                    flags &= ~(1 << (15 - bit));
+                }
+                pass();
+            }
+        }
+        byteBuffer.putShort((short) (flags & 0xFFFF));
         pass();
     }
 
@@ -88,14 +135,16 @@ public class DnsPacketWriter extends DnsPacketProcessor {
         run();
     }
 
-    public void startFlags() {
-        super.startFlags();
-        fieldIntValue = 0;
+    public void writeFlagRD(boolean val) {
+        currentField = Field.FLAG_RD;
+        fieldBooleanValue = val;
+        run();
     }
 
     public void writeOpcode(int opcode) {
-        fieldIntValue &= 0x87FF;
-        fieldIntValue |= (opcode << 11);
+        currentField = Field.OPCODE;
+        fieldIntValue = opcode;
+        run();
     }
 
     public void writeQuestionRecordsCount(int count) {
@@ -121,6 +170,31 @@ public class DnsPacketWriter extends DnsPacketProcessor {
     public void writeAdditionalRecordsCount(int count) {
         currentField = Field.ADDITIONAL_RECORDS_COUNT;
         fieldIntValue = count;
+        run();
+    }
+
+    public void writeRecordName(String recordName) {
+        for (String label : recordName.split("\\.")) {
+            writeRecordNameLabel(label);
+        }
+        writeRecordNameLabel(null);
+    }
+
+    public void writeRecordNameLabel(String label) {
+        currentField = Field.RECORD_NAME;
+        fieldStringValue = label;
+        run();
+    }
+
+    public void writeRecordType(int type) {
+        currentField = Field.RECORD_TYPE;
+        fieldIntValue = type;
+        run();
+    }
+
+    public void writeRecordDClass(int dclass) {
+        currentField = Field.RECORD_DCLASS;
+        fieldIntValue = dclass;
         run();
     }
 }

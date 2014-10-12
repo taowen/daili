@@ -10,7 +10,7 @@ import java.nio.ByteBuffer;
 public abstract class DnsPacketProcessor extends Task {
 
     protected static enum Field {
-        OPCODE, FLAG_QR, FLAG_AA, FLAG_TC,
+        OPCODE, FLAG_QR, FLAG_AA, FLAG_TC, FLAG_RD,
         QUESTION_RECORDS_COUNT,
         ANSWER_RECORDS_COUNT,
         AUTHORITY_RECORDS_COUNT,
