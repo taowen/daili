@@ -17,6 +17,8 @@ public abstract class Scheduler {
 
     public abstract void loop();
 
+    public abstract void exit() throws IOException;
+
     public abstract SocketChannel accept(ServerSocketChannel serverSocketChannel, int timeout) throws IOException, Pausable, TimeoutException;
 
     public abstract int read(SocketChannel socketChannel, ByteBuffer byteBuffer, int timeout) throws IOException, Pausable, TimeoutException;

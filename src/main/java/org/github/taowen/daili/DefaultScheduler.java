@@ -34,14 +34,219 @@ public class DefaultScheduler extends Scheduler {
         }
     }
 
-    private SelectorBooking addSelectorBooking(SelectionKey selectionKey) {
-        return new SelectorBooking(sortedBookings, selectionKey);
+    @Override
+    public void loop() {
+        while (selector.isOpen()) {
+            loopOnce();
+        }
     }
 
     @Override
-    public void loop() {
-        while (loopOnce()) {
+    public void exit() throws IOException {
+        selector.close();
+    }
+
+    @Override
+    public SocketChannel accept(ServerSocketChannel serverSocketChannel, int timeout) throws IOException, Pausable, TimeoutException {
+        SocketChannel socketChannel = serverSocketChannel.accept();
+        if (null != socketChannel) {
+            return socketChannel;
         }
+        // =========== END WORKER THREAD =========
+
+        switchToSchedulerThread();
+
+        // =========== BEGIN SCHEDULER THREAD =========
+        SelectionKey selectionKey = serverSocketChannel.keyFor(selector);
+        if (null == selectionKey) {
+            selectionKey = serverSocketChannel.register(selector, 0);
+            selectionKey.interestOps(SelectionKey.OP_ACCEPT);
+            SelectorBooking booking = new SelectorBooking(sortedBookings, selectionKey);
+            selectionKey.attach(booking);
+        } else {
+            selectionKey.interestOps(selectionKey.interestOps() | SelectionKey.OP_ACCEPT);
+        }
+        SelectorBooking booking = (SelectorBooking) selectionKey.attachment();
+        // =========== END SCHEDULER THREAD =========
+
+        booking.acceptBlocked(currentTimeMillis() + timeout);
+
+        // =========== BEGIN WORKER THREAD =========
+        return serverSocketChannel.accept();
+    }
+
+    @Override
+    public int read(SocketChannel socketChannel, ByteBuffer byteBuffer, int timeout) throws IOException, Pausable, TimeoutException {
+        int bytesCount = socketChannel.read(byteBuffer);
+        if (bytesCount > 0) {
+            return bytesCount;
+        }
+        // =========== END WORKER THREAD =========
+
+        readBlocked(socketChannel, timeout); // switched to scheduler thread inside
+
+        // =========== BEGIN WORKER THREAD =========
+        return socketChannel.read(byteBuffer);
+    }
+
+    private void readBlocked(SelectableChannel channel, int timeout) throws ClosedChannelException, Pausable, TimeoutException {
+        // ...
+        // =========== END WORKER THREAD =========
+
+        switchToSchedulerThread();
+
+        // =========== BEGIN SCHEDULER THREAD =========
+        SelectionKey selectionKey = channel.keyFor(selector);
+        if (null == selectionKey) {
+            selectionKey = channel.register(selector, SelectionKey.OP_READ);
+            SelectorBooking booking = new SelectorBooking(sortedBookings, selectionKey);
+            selectionKey.attach(booking);
+        } else {
+            selectionKey.interestOps(selectionKey.interestOps() | SelectionKey.OP_READ);
+        }
+        SelectorBooking booking = (SelectorBooking) selectionKey.attachment();
+        // =========== END SCHEDULER THREAD =========
+
+        booking.readBlocked(currentTimeMillis() + timeout);
+
+        // =========== BEGIN WORKER THREAD =========
+        // ...
+    }
+
+    @Override
+    public int write(SocketChannel socketChannel, ByteBuffer byteBuffer, int timeout) throws IOException, Pausable, TimeoutException {
+        int bytesCount = socketChannel.write(byteBuffer);
+        if (bytesCount > 0) {
+            return bytesCount;
+        }
+        // =========== END WORKER THREAD =========
+
+        writeBlocked(socketChannel, timeout); // switched to scheduler thread inside
+
+        // =========== BEGIN WORKER THREAD =========
+        return socketChannel.write(byteBuffer);
+    }
+
+    private void writeBlocked(SelectableChannel channel, int timeout) throws ClosedChannelException, Pausable, TimeoutException {
+        // ...
+        // =========== END WORKER THREAD =========
+
+        switchToSchedulerThread();
+
+        // =========== BEGIN SCHEDULER THREAD =========
+        SelectionKey selectionKey = channel.keyFor(selector);
+        if (null == selectionKey) {
+            selectionKey = channel.register(selector, SelectionKey.OP_WRITE);
+            SelectorBooking booking = new SelectorBooking(sortedBookings, selectionKey);
+            selectionKey.attach(booking);
+        } else {
+            selectionKey.interestOps(selectionKey.interestOps() | SelectionKey.OP_WRITE);
+        }
+        SelectorBooking booking = (SelectorBooking) selectionKey.attachment();
+        // =========== END SCHEDULER THREAD =========
+
+        booking.writeBlocked(currentTimeMillis() + timeout);
+
+        // =========== BEGIN WORKER THREAD =========
+        // ...
+    }
+
+    @Override
+    public void connect(SocketChannel socketChannel, SocketAddress remote, int timeout) throws IOException, TimeoutException, Pausable {
+        if (socketChannel.connect(remote)) {
+            return;
+        }
+        // =========== END WORKER THREAD =========
+
+        switchToSchedulerThread();
+
+        // =========== BEGIN SCHEDULER THREAD =========
+        SelectionKey selectionKey = socketChannel.keyFor(selector);
+        if (null == selectionKey) {
+            selectionKey = socketChannel.register(selector, SelectionKey.OP_CONNECT);
+            SelectorBooking booking = new SelectorBooking(sortedBookings, selectionKey);
+            selectionKey.attach(booking);
+        } else {
+            selectionKey.interestOps(selectionKey.interestOps() | SelectionKey.OP_CONNECT);
+        }
+        SelectorBooking booking = (SelectorBooking) selectionKey.attachment();
+        // =========== END SCHEDULER THREAD =========
+
+        booking.connectBlocked(currentTimeMillis() + timeout);
+
+        // =========== BEGIN WORKER THREAD =========
+        if (!socketChannel.finishConnect()) {
+            throw new RuntimeException("still not connected, after connect op unblocked");
+        }
+    }
+
+    @Override
+    public SocketAddress receive(DatagramChannel datagramChannel, ByteBuffer byteBuffer, int timeout) throws IOException, TimeoutException, Pausable {
+        SocketAddress clientAddress = datagramChannel.receive(byteBuffer);
+        if (null != clientAddress) {
+            return clientAddress;
+        }
+        // =========== END WORKER THREAD =========
+
+        readBlocked(datagramChannel, timeout); // switched to scheduler thread inside
+
+        // =========== BEGIN WORKER THREAD =========
+        return datagramChannel.receive(byteBuffer);
+    }
+
+    @Override
+    public int send(DatagramChannel channel, ByteBuffer byteBuffer, InetSocketAddress target, int timeout) throws IOException, TimeoutException, Pausable {
+        int bytesCount = channel.send(byteBuffer, target);
+        if (bytesCount > 0) {
+            return bytesCount;
+        }
+        // =========== END WORKER THREAD =========
+
+        writeBlocked(channel, timeout); // switched to scheduler thread inside
+
+        // =========== BEGIN WORKER THREAD =========
+        return channel.send(byteBuffer, target);
+    }
+
+    @Override
+    public Object waitUntil(String eventName, long deadline) throws Pausable, TimeoutException {
+        // =========== END WORKER THREAD =========
+
+        switchToSchedulerThread();
+
+        // =========== BEGIN SCHEDULER THREAD =========
+        List<EventBooking> eventBookings = eventMap.get(eventName);
+        if (null == eventBookings) {
+            eventBookings = new ArrayList<EventBooking>(2);
+            eventMap.put(eventName, eventBookings);
+        }
+        EventBooking booking = new EventBooking(eventBookings, eventName, deadline, Task.getCurrentTask());
+        if (!sortedBookings.add(booking)) {
+            throw new RuntimeException("failed to add booking: " + this);
+        }
+        selector.wakeup();
+        // =========== END SCHEDULER THREAD =========
+
+        return booking.blocked();
+
+        // =========== BEGIN WORKER THREAD =========
+        // ...
+    }
+
+    @Override
+    public void trigger(final String eventName, final Object eventData) throws Pausable {
+        // =========== END WORKER THREAD =========
+
+        switchToSchedulerThread();
+
+        // =========== BEGIN SCHEDULER THREAD =========
+        pushEventReadyTasks(eventName, eventData);
+        // =========== END SCHEDULER THREAD =========
+
+        switchToWorkerThread();
+
+        // =========== BEGIN WORKER THREAD =========
+        // ...
     }
 
     boolean loopOnce() {
@@ -117,177 +322,7 @@ public class DefaultScheduler extends Scheduler {
         // ...
     }
 
-    @Override
-    public SocketChannel accept(ServerSocketChannel serverSocketChannel, int timeout) throws IOException, Pausable, TimeoutException {
-        SocketChannel socketChannel = serverSocketChannel.accept();
-        if (null != socketChannel) {
-            return socketChannel;
-        }
-        switchToSchedulerThread();
-        SelectionKey selectionKey = serverSocketChannel.keyFor(selector);
-        if (null == selectionKey) {
-            selectionKey = serverSocketChannel.register(selector, 0);
-            selectionKey.interestOps(SelectionKey.OP_ACCEPT);
-            SelectorBooking booking = addSelectorBooking(selectionKey);
-            selectionKey.attach(booking);
-        } else {
-            selectionKey.interestOps(selectionKey.interestOps() | SelectionKey.OP_ACCEPT);
-        }
-        SelectorBooking booking = (SelectorBooking) selectionKey.attachment();
-        booking.acceptBlocked(currentTimeMillis() + timeout);
-        return serverSocketChannel.accept();
-    }
-
-    @Override
-    public int read(SocketChannel socketChannel, ByteBuffer byteBuffer, int timeout) throws IOException, Pausable, TimeoutException {
-        int bytesCount = socketChannel.read(byteBuffer);
-        if (bytesCount > 0) {
-            return bytesCount;
-        }
-        readBlocked(socketChannel, timeout);
-        return socketChannel.read(byteBuffer);
-    }
-
-    private void readBlocked(SelectableChannel channel, int timeout) throws ClosedChannelException, Pausable, TimeoutException {
-        switchToSchedulerThread();
-        SelectionKey selectionKey = channel.keyFor(selector);
-        if (null == selectionKey) {
-            selectionKey = channel.register(selector, SelectionKey.OP_READ);
-            SelectorBooking booking = addSelectorBooking(selectionKey);
-            selectionKey.attach(booking);
-        } else {
-            selectionKey.interestOps(selectionKey.interestOps() | SelectionKey.OP_READ);
-        }
-        SelectorBooking booking = (SelectorBooking) selectionKey.attachment();
-        booking.readBlocked(currentTimeMillis() + timeout);
-    }
-
-    @Override
-    public int write(SocketChannel socketChannel, ByteBuffer byteBuffer, int timeout) throws IOException, Pausable, TimeoutException {
-        int bytesCount = socketChannel.write(byteBuffer);
-        if (bytesCount > 0) {
-            return bytesCount;
-        }
-        writeBlocked(socketChannel, timeout);
-        return socketChannel.write(byteBuffer);
-    }
-
-    private void writeBlocked(SelectableChannel channel, int timeout) throws ClosedChannelException, Pausable, TimeoutException {
-        // ...
-        // =========== END WORKER THREAD =========
-
-        switchToSchedulerThread();
-
-        // =========== BEGIN SCHEDULER THREAD =========
-        SelectionKey selectionKey = channel.keyFor(selector);
-        if (null == selectionKey) {
-            selectionKey = channel.register(selector, SelectionKey.OP_WRITE);
-            SelectorBooking booking = addSelectorBooking(selectionKey);
-            selectionKey.attach(booking);
-        } else {
-            selectionKey.interestOps(selectionKey.interestOps() | SelectionKey.OP_WRITE);
-        }
-        SelectorBooking booking = (SelectorBooking) selectionKey.attachment();
-        // =========== END SCHEDULER THREAD =========
-
-        booking.writeBlocked(currentTimeMillis() + timeout);
-
-        // =========== BEGIN WORKER THREAD =========
-        // ...
-    }
-
-    public void close() throws IOException {
-        selector.close();
-    }
-
-    @Override
-    public void connect(SocketChannel socketChannel, SocketAddress remote, int timeout) throws IOException, TimeoutException, Pausable {
-        if (socketChannel.connect(remote)) {
-            return;
-        }
-        switchToSchedulerThread();
-        SelectionKey selectionKey = socketChannel.keyFor(selector);
-        if (null == selectionKey) {
-            selectionKey = socketChannel.register(selector, SelectionKey.OP_CONNECT);
-            SelectorBooking booking = addSelectorBooking(selectionKey);
-            selectionKey.attach(booking);
-        } else {
-            selectionKey.interestOps(selectionKey.interestOps() | SelectionKey.OP_CONNECT);
-        }
-        SelectorBooking booking = (SelectorBooking) selectionKey.attachment();
-        booking.connectBlocked(currentTimeMillis() + timeout);
-        if (!socketChannel.finishConnect()) {
-            throw new RuntimeException("still not connected, after connect op unblocked");
-        }
-    }
-
-    @Override
-    public SocketAddress receive(DatagramChannel datagramChannel, ByteBuffer byteBuffer, int timeout) throws IOException, TimeoutException, Pausable {
-        SocketAddress clientAddress = datagramChannel.receive(byteBuffer);
-        if (null != clientAddress) {
-            return clientAddress;
-        }
-        readBlocked(datagramChannel, timeout);
-        return datagramChannel.receive(byteBuffer);
-    }
-
-    @Override
-    public int send(DatagramChannel channel, ByteBuffer byteBuffer, InetSocketAddress target, int timeout) throws IOException, TimeoutException, Pausable {
-        int bytesCount = channel.send(byteBuffer, target);
-        if (bytesCount > 0) {
-            return bytesCount;
-        }
-        // =========== END WORKER THREAD =========
-
-        writeBlocked(channel, timeout); // switched to scheduler thread inside
-
-        // =========== BEGIN WORKER THREAD =========
-        return channel.send(byteBuffer, target);
-    }
-
-    @Override
-    public Object waitUntil(String eventName, long deadline) throws Pausable, TimeoutException {
-        // =========== END WORKER THREAD =========
-
-        switchToSchedulerThread();
-
-        // =========== BEGIN SCHEDULER THREAD =========
-        List<EventBooking> eventBookings = eventMap.get(eventName);
-        if (null == eventBookings) {
-            eventBookings = new ArrayList<EventBooking>(2);
-            eventMap.put(eventName, eventBookings);
-        }
-        EventBooking booking = new EventBooking(eventBookings, eventName, deadline, Task.getCurrentTask());
-        if (!sortedBookings.add(booking)) {
-            throw new RuntimeException("failed to add booking: " + this);
-        }
-        selector.wakeup();
-        // =========== END SCHEDULER THREAD =========
-
-        return booking.blocked();
-
-        // =========== BEGIN WORKER THREAD =========
-        // ...
-    }
-
-    @Override
-    public void trigger(final String eventName, final Object eventData) throws Pausable {
-        // =========== END WORKER THREAD =========
-
-        switchToSchedulerThread();
-
-        // =========== BEGIN SCHEDULER THREAD =========
-        pushEventReadyTasks(eventName, eventData);
-        // =========== END SCHEDULER THREAD =========
-
-        switchToWorkerThread();
-
-        // =========== BEGIN WORKER THREAD =========
-        // ...
-    }
-
     private void pullIncomingTasks() {
-        // =========== BEGIN SCHEDULER THREAD =========
         Task task;
         while ((task = incomingTasks.poll()) != null) {
             try {
@@ -296,11 +331,9 @@ public class DefaultScheduler extends Scheduler {
                 LOGGER.error("failed to execute external task: " + task, e);
             }
         }
-        // =========== END SCHEDULER THREAD =========
     }
 
     private void pushOutgoingTasks() {
-        // =========== BEGIN SCHEDULER THREAD =========
         for (Task task : outgoingTasks) {
             try {
                 task.run();
@@ -309,21 +342,17 @@ public class DefaultScheduler extends Scheduler {
             }
         }
         outgoingTasks.clear();
-        // =========== END SCHEDULER THREAD =========
     }
 
     private void pushEventReadyTasks(String eventName, Object eventData) {
-        // =========== BEGIN SCHEDULER THREAD =========
         List<EventBooking> bookings = eventMap.remove(eventName);
         for (EventBooking booking : bookings) {
             sortedBookings.remove(booking);
             booking.trigger(eventData);
         }
-        // =========== END SCHEDULER THREAD =========
     }
 
     private void pushIoReadyTasks(Iterator<SelectionKey> iterator) {
-        // =========== BEGIN SCHEDULER THREAD =========
         List<Runnable> readyTasks = new ArrayList<Runnable>();
         while (iterator.hasNext()) {
             SelectionKey selectionKey = iterator.next();
@@ -340,6 +369,5 @@ public class DefaultScheduler extends Scheduler {
                 LOGGER.error("failed to run task: " + readyTask, e);
             }
         }
-        // =========== END SCHEDULER THREAD =========
     }
 }

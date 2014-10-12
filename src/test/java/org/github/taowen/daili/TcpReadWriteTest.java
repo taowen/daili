@@ -51,7 +51,7 @@ public class TcpReadWriteTest extends UsingFixture {
                 }
             }
         } finally {
-            scheduler.close();
+            scheduler.exit();
         }
     }
 
