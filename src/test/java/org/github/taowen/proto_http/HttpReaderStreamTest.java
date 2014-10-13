@@ -9,7 +9,7 @@ import java.util.List;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-public class HttpReaderTest extends TestCase {
+public class HttpReaderStreamTest extends TestCase {
 
     public void testOneByteBuffer() {
         HttpReader reader = createReader("GET");
