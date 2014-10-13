@@ -1,6 +1,8 @@
 package org.github.taowen.daili;
 
 import kilim.Pausable;
+import org.github.taowen.proto_dns.DnsPacketReader;
+import org.github.taowen.proto_dns.DnsPacketWriter;
 
 import java.io.EOFException;
 import java.net.Inet4Address;

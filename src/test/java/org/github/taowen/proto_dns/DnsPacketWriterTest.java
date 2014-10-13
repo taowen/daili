@@ -1,5 +1,6 @@
-package org.github.taowen.daili;
+package org.github.taowen.proto_dns;
 
+import junit.framework.TestCase;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -14,7 +15,7 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 @RunWith(JUnit4.class)
-public class DnsPacketWriterTest extends UsingFixture {
+public class DnsPacketWriterTest extends TestCase {
 
     @Test
     public void emptyMessage() throws IOException {

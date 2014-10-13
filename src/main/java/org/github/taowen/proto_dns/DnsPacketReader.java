@@ -1,4 +1,4 @@
-package org.github.taowen.daili;
+package org.github.taowen.proto_dns;
 
 import kilim.Pausable;
 
@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.nio.charset.Charset;
 
 public class DnsPacketReader extends DnsPacketProcessor {
 

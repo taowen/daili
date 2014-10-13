@@ -1,4 +1,4 @@
-package org.github.taowen.daili;
+package org.github.taowen.proto_dns;
 
 import kilim.Pausable;
 

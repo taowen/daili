@@ -2,8 +2,6 @@ package org.github.taowen.daili;
 
 import kilim.Pausable;
 
-import java.util.concurrent.TimeoutException;
-
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
