@@ -23,7 +23,7 @@ public class HttpReaderMethodTest extends TestCase {
                 "POST", "PROPFIND", "PROPPATCH", "PUT", "PATCH", "PURGE",
                 "REPORT", "SUBSCRIBE", "TRACE", "UNLOCK", "UNSUBSCRIBE"
         }) {
-            HttpReader reader = createReader(method);
+            HttpReader reader = createReader(method + " ");
             assertThat(reader.readMethod(), is(method));
         }
     }

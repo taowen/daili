@@ -12,7 +12,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 public class HttpReaderStreamTest extends TestCase {
 
     public void testOneByteBuffer() {
-        HttpReader reader = createReader("GET");
+        HttpReader reader = createReader("GET ");
         assertThat(reader.readMethod(), is("GET"));
     }
 
@@ -20,7 +20,7 @@ public class HttpReaderStreamTest extends TestCase {
         HttpReader reader = new HttpReader();
         List<ByteBuffer> byteBuffers = Arrays.asList(
                 ByteBuffer.wrap("G".getBytes()),
-                ByteBuffer.wrap("ET".getBytes()));
+                ByteBuffer.wrap("ET ".getBytes()));
         reader.byteBufferStream(byteBuffers.iterator());
         assertThat(reader.readMethod(), is("GET"));
     }
