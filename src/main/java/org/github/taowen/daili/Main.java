@@ -2,7 +2,10 @@ package org.github.taowen.daili;
 
 import kilim.Pausable;
 
+import java.io.EOFException;
+import java.net.Inet4Address;
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.DatagramChannel;
 
@@ -13,30 +16,44 @@ public class Main {
         DailiTask task = new DailiTask(scheduler, worker) {
             @Override
             public void execute() throws Pausable, Exception {
-                DatagramChannel channel = DatagramChannel.open();
+                final DatagramChannel channel = DatagramChannel.open();
                 channel.configureBlocking(false);
                 channel.socket().bind(new InetSocketAddress(9090));
                 while (true) {
                     final ByteBuffer buffer = ByteBuffer.allocateDirect(8192);
-                    scheduler().receive(channel, buffer, 60 * 1000);
+                    final SocketAddress address = scheduler().receive(channel, buffer, 60 * 1000);
                     new DailiTask(scheduler(), worker){
                         @Override
                         public void execute() throws Pausable, Exception {
                             buffer.flip();
-                            final DnsPacketReader dnsPacket = new DnsPacketReader();
+                            int id = readPacket(buffer);
+                            buffer.clear();
+                            DnsPacketWriter dnsPacket = new DnsPacketWriter();
                             dnsPacket.byteBuffer(buffer);
-                            dnsPacket.readId();
+                            dnsPacket.writeId(id);
                             dnsPacket.startFlags();
+                            dnsPacket.writeOpcode(dnsPacket.OPCODE_QUERY);
                             dnsPacket.endFlags();
-                            dnsPacket.readQuestionRecordsCount();
-                            dnsPacket.readAnswerRecordsCount();
-                            dnsPacket.readAuthorityRecordsCount();
-                            dnsPacket.readAdditionalRecordsCount();
+                            dnsPacket.writeQuestionRecordsCount(1);
+                            dnsPacket.writeAnswerRecordsCount(1);
+                            dnsPacket.writeAuthorityRecordsCount(0);
+                            dnsPacket.writeAdditionalRecordsCount(0);
                             dnsPacket.startRecord();
-                            System.out.println(dnsPacket.readRecordName());
-                            dnsPacket.readRecordType();
-                            dnsPacket.readRecordDClass();
+                            int wwwGoogleComPos = dnsPacket.byteBuffer().position();
+                            dnsPacket.writeRecordName("www.google.com.");
+                            dnsPacket.writeRecordType(dnsPacket.TYPE_A);
+                            dnsPacket.writeRecordDClass(dnsPacket.DCLASS_IN);
                             dnsPacket.endRecord();
+                            dnsPacket.startRecord();
+                            dnsPacket.writeRecordNameLabel(wwwGoogleComPos);
+                            dnsPacket.writeRecordType(dnsPacket.TYPE_A);
+                            dnsPacket.writeRecordDClass(dnsPacket.DCLASS_IN);
+                            dnsPacket.writeRecordTTL(60);
+                            dnsPacket.writeRecordDataLength(4);
+                            dnsPacket.writeRecordInetAddress(Inet4Address.getByName("1.2.3.4"));
+                            dnsPacket.endRecord();
+                            buffer.flip();
+                            scheduler().send(channel, buffer, address, 60 * 1000);
                         }
                     }.run();
                 }
@@ -45,5 +62,23 @@ public class Main {
         task.run();
         new Thread(worker).start();
         scheduler.loop();
+    }
+
+    private static int readPacket(ByteBuffer buffer) throws EOFException {
+        final DnsPacketReader dnsPacket = new DnsPacketReader();
+        dnsPacket.byteBuffer(buffer);
+        int id = dnsPacket.readId();
+        dnsPacket.startFlags();
+        dnsPacket.endFlags();
+        dnsPacket.readQuestionRecordsCount();
+        dnsPacket.readAnswerRecordsCount();
+        dnsPacket.readAuthorityRecordsCount();
+        dnsPacket.readAdditionalRecordsCount();
+        dnsPacket.startRecord();
+        System.out.println(dnsPacket.readRecordName());
+        dnsPacket.readRecordType();
+        dnsPacket.readRecordDClass();
+        dnsPacket.endRecord();
+        return id;
     }
 }

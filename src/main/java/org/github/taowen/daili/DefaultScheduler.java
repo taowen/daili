@@ -195,7 +195,7 @@ public class DefaultScheduler extends Scheduler {
     }
 
     @Override
-    public int send(DatagramChannel channel, ByteBuffer byteBuffer, InetSocketAddress target, int timeout) throws IOException, TimeoutException, Pausable {
+    public int send(DatagramChannel channel, ByteBuffer byteBuffer, SocketAddress target, int timeout) throws IOException, TimeoutException, Pausable {
         int bytesCount = channel.send(byteBuffer, target);
         if (bytesCount > 0) {
             return bytesCount;

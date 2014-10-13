@@ -9,6 +9,15 @@ import java.nio.ByteBuffer;
 
 public abstract class DnsPacketProcessor extends Task {
 
+    /** A standard query */
+    public static final int OPCODE_QUERY		= 0;
+
+    /** Address */
+    public static final int TYPE_A		= 1;
+
+    /** Internet */
+    public static final int DCLASS_IN		= 1;
+
     protected static enum Field {
         OPCODE, FLAG_QR, FLAG_AA, FLAG_TC, FLAG_RD,
         QUESTION_RECORDS_COUNT,
