@@ -112,6 +112,10 @@ public abstract class DnsPacketProcessor extends Task {
         this.byteBuffer = byteBuffer;
     }
 
+    public ByteBuffer byteBuffer() {
+        return byteBuffer;
+    }
+
     public void startFlags() {
         currentField = Field.START_FLAGS;
         run();

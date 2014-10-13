@@ -3,21 +3,28 @@ package org.github.taowen.daili;
 import kilim.Pausable;
 
 import java.io.IOException;
+import java.net.InetAddress;
 
 public class DnsPacketWriter extends DnsPacketProcessor {
 
+    protected long fieldLongValue;
     protected int fieldIntValue;
     protected boolean fieldBooleanValue;
+    protected byte[] fieldBytesValue;
     protected String fieldStringValue;
 
     @Override
     protected void processRecordInetAddress() throws Pausable {
-        throw new UnsupportedOperationException();
+        for (byte b : fieldBytesValue) {
+            byteBuffer.put(b);
+        }
+        pass();
     }
 
     @Override
     protected void processRecordDataLength() throws Pausable {
-        throw new UnsupportedOperationException();
+        byteBuffer.putShort((short) (fieldIntValue & 0xFFFF));
+        pass();
     }
 
     @Override
@@ -27,7 +34,8 @@ public class DnsPacketWriter extends DnsPacketProcessor {
 
     @Override
     protected void processRecordTTL() throws Pausable {
-        throw new UnsupportedOperationException();
+        byteBuffer.putInt((int) (fieldLongValue & 0xFFFFFFFFL));
+        pass();
     }
 
     @Override
@@ -46,6 +54,13 @@ public class DnsPacketWriter extends DnsPacketProcessor {
     protected void processRecordName() throws IOException, Pausable {
         while (true) {
             assert Field.RECORD_NAME == currentField;
+            if (fieldIntValue > 0) {
+                int pos = fieldIntValue;
+                pos |= (0xC0 << 8);
+                byteBuffer.putShort((short) (pos & 0xFFFF));
+                pass();
+                return;
+            }
             if (null == fieldStringValue) {
                 byteBuffer.put((byte) 0);
                 pass();
@@ -180,8 +195,17 @@ public class DnsPacketWriter extends DnsPacketProcessor {
         writeRecordNameLabel(null);
     }
 
+    public void writeRecordNameLabel(int position) {
+        currentField = Field.RECORD_NAME;
+        fieldIntValue = position;
+        fieldStringValue = null;
+        run();
+
+    }
+
     public void writeRecordNameLabel(String label) {
         currentField = Field.RECORD_NAME;
+        fieldIntValue = 0;
         fieldStringValue = label;
         run();
     }
@@ -195,6 +219,24 @@ public class DnsPacketWriter extends DnsPacketProcessor {
     public void writeRecordDClass(int dclass) {
         currentField = Field.RECORD_DCLASS;
         fieldIntValue = dclass;
+        run();
+    }
+
+    public void writeRecordTTL(long ttl) {
+        currentField = Field.RECORD_TTL;
+        fieldLongValue = ttl;
+        run();
+    }
+
+    public void writeRecordDataLength(int dataLength) {
+        currentField = Field.RECORD_DATA_LENGTH;
+        fieldIntValue = dataLength;
+        run();
+    }
+
+    public void writeRecordInetAddress(InetAddress address) {
+        currentField = Field.RECORD_INET_ADDRESS;
+        fieldBytesValue = address.getAddress();
         run();
     }
 }
