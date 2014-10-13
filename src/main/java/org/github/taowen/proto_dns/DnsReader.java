@@ -7,7 +7,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
-public class DnsPacketReader extends DnsPacketProcessor {
+public class DnsReader extends DnsProcessor {
 
     protected long fieldLongValue;
     protected int fieldIntValue;

@@ -7,7 +7,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-public abstract class DnsPacketProcessor extends Task {
+public abstract class DnsProcessor extends Task {
 
     /** A standard query */
     public static final int OPCODE_QUERY		= 0;

@@ -5,7 +5,7 @@ import kilim.Pausable;
 import java.io.IOException;
 import java.net.InetAddress;
 
-public class DnsPacketWriter extends DnsPacketProcessor {
+public class DnsWriter extends DnsProcessor {
 
     protected long fieldLongValue;
     protected int fieldIntValue;

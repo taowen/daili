@@ -1,8 +1,8 @@
 package org.github.taowen.daili;
 
 import kilim.Pausable;
-import org.github.taowen.proto_dns.DnsPacketReader;
-import org.github.taowen.proto_dns.DnsPacketWriter;
+import org.github.taowen.proto_dns.DnsReader;
+import org.github.taowen.proto_dns.DnsWriter;
 
 import java.io.EOFException;
 import java.net.Inet4Address;
@@ -30,7 +30,7 @@ public class Main {
                             buffer.flip();
                             int id = readPacket(buffer);
                             buffer.clear();
-                            DnsPacketWriter dnsPacket = new DnsPacketWriter();
+                            DnsWriter dnsPacket = new DnsWriter();
                             dnsPacket.byteBuffer(buffer);
                             dnsPacket.writeId(id);
                             dnsPacket.startFlags();
@@ -67,7 +67,7 @@ public class Main {
     }
 
     private static int readPacket(ByteBuffer buffer) throws EOFException {
-        final DnsPacketReader dnsPacket = new DnsPacketReader();
+        final DnsReader dnsPacket = new DnsReader();
         dnsPacket.byteBuffer(buffer);
         int id = dnsPacket.readId();
         dnsPacket.startFlags();
