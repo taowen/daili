@@ -11,7 +11,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 public class HttpReaderPortTest extends TestCase {
 
     public void test() {
-        testPort("GET http://www.google.com:8080/", "8080");
+        testPort("GET http://www.google.com ", "");
+        testPort("GET http://www.google.com\n", "");
+        testPort("GET http://www.google.com?", "");
         testPort("GET http://www.google.com:8080?", "8080");
         testPort("GET http://www.google.com:8080 ", "8080");
         testPort("GET http://www.google.com:8080\n", "8080");
