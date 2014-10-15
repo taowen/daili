@@ -12,8 +12,9 @@ public class HttpReader extends Task {
     protected String fieldStringValue;
     private ByteBuffer currentByteBuffer;
     private Field currentField;
+
     private static enum Field {
-        METHOD, SCHEMA
+        METHOD, HOST, SCHEMA
     }
     private static final byte CR = 0x0d;
     private static final byte LF = 0x0a;
@@ -37,12 +38,25 @@ public class HttpReader extends Task {
             throw new UnsupportedOperationException("not implemented yet");
         } else {
             assert Field.SCHEMA == currentField;
-            StringBuilder schema = new StringBuilder();
+            StringBuilder buf = new StringBuilder();
             while (':' != b) {
-                schema.append((char)b);
+                buf.append((char)b);
                 b = get();
             }
-            fieldStringValue = schema.toString();
+            fieldStringValue = buf.toString();
+            pass();
+            assert Field.HOST == currentField;
+            buf.setLength(0);
+            b = get();
+            assert '/' == b;
+            b = get();
+            assert '/' == b;
+            b = get();
+            while (':' != b && '/' != b && '?' != b) {
+                buf.append((char)b);
+                b = get();
+            }
+            fieldStringValue = buf.toString();
             pass();
         }
     }
@@ -87,6 +101,12 @@ public class HttpReader extends Task {
 
     public String readSchema() {
         currentField = Field.SCHEMA;
+        run();
+        return fieldStringValue;
+    }
+
+    public String readHost() {
+        currentField = Field.HOST;
         run();
         return fieldStringValue;
     }
