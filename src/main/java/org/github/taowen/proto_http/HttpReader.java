@@ -14,7 +14,7 @@ public class HttpReader extends Task {
     private Field currentField;
 
     private static enum Field {
-        METHOD, HOST, PORT, SCHEMA
+        METHOD, HOST, PORT, PATH, SCHEMA
     }
     private static final byte CR = 0x0d;
     private static final byte LF = 0x0a;
@@ -33,70 +33,99 @@ public class HttpReader extends Task {
         if (null == method) {
             return; // empty request
         }
-        byte b = skipEmptySpaces();
         if ("CONNECT".equals(method)) {
             throw new UnsupportedOperationException("not implemented yet");
         } else {
-            assert Field.SCHEMA == currentField;
-            StringBuilder buf = new StringBuilder();
-            while (':' != b) {
-                buf.append((char)b);
-                b = get();
+            parseFirstLine();
+        }
+    }
+
+    private void parseFirstLine() throws Pausable {
+        byte b = skipEmptySpaces();
+        assert Field.SCHEMA == currentField;
+        StringBuilder buf = new StringBuilder();
+        while (':' != b) {
+            buf.append((char)b);
+            b = get();
+        }
+        fieldStringValue = buf.toString();
+        pass();
+        buf.setLength(0);
+        b = get();
+        assert '/' == b;
+        b = get();
+        assert '/' == b;
+        b = get();
+        String port = null;
+        String path = null;
+        assert Field.HOST == currentField;
+        while (':' != b) {
+            if ('/' == b) {
+                port = "";
+                break;
             }
-            fieldStringValue = buf.toString();
-            pass();
-            assert Field.HOST == currentField;
-            buf.setLength(0);
+            if ('?' == b) {
+                port = "";
+                path = "";
+                break;
+            }
+            if (' ' == b) {
+                port = "";
+                path = "";
+                break;
+            }
+            if (CR == b || LF == b) {
+                port = "";
+                path = "";
+                break;
+            }
+            buf.append((char)b);
             b = get();
-            assert '/' == b;
+        }
+        fieldStringValue = buf.toString();
+        pass();
+        assert Field.PORT == currentField;
+        buf.setLength(0);
+        if (null == port) {
             b = get();
-            assert '/' == b;
-            b = get();
-            String port = null;
-            while (':' != b) {
-                if ('/' == b) {
-                    port = "";
-                    break;
-                }
+            while ('/' != b) {
                 if ('?' == b) {
-                    port = "";
+                    path = "";
                     break;
                 }
                 if (' ' == b) {
-                    port = "";
+                    path = "";
                     break;
                 }
                 if (CR == b || LF == b) {
-                    port = "";
+                    path = "";
                     break;
                 }
                 buf.append((char)b);
                 b = get();
             }
-            fieldStringValue = buf.toString();
-            pass();
-            assert Field.PORT == currentField;
-            buf.setLength(0);
-            if (null == port) {
-                b = get();
-                while ('/' != b) {
-                    if ('?' == b) {
-                        break;
-                    }
-                    if (' ' == b) {
-                        break;
-                    }
-                    if (CR == b || LF == b) {
-                        break;
-                    }
-                    buf.append((char)b);
-                    b = get();
-                }
-                port = buf.toString();
-            }
-            fieldStringValue = port;
-            pass();
+            port = buf.toString();
         }
+        fieldStringValue = port;
+        pass();
+        assert Field.PATH == currentField;
+        buf.setLength(0);
+        if (null == path) {
+            b = get();
+            while ('?' != b) {
+                if (' ' == b) {
+                    break;
+                }
+                if (CR == b || LF == b) {
+                    break;
+                }
+                buf.append((char)b);
+                b = get();
+            }
+            path = buf.toString();
+        }
+        fieldStringValue = path;
+        pass();
     }
 
     private byte skipEmptySpaces() {
@@ -151,6 +180,12 @@ public class HttpReader extends Task {
 
     public String readPort() {
         currentField = Field.PORT;
+        run();
+        return fieldStringValue;
+    }
+
+    public String readPath() {
+        currentField = Field.PATH;
         run();
         return fieldStringValue;
     }
