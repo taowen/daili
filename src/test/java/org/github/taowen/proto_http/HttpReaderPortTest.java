@@ -8,21 +8,21 @@ import java.util.Arrays;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-public class HttpReaderHostTest extends TestCase {
+public class HttpReaderPortTest extends TestCase {
 
     public void test() {
-        testHost("GET http://www.google.com:8080", "www.google.com");
-        testHost("GET http://www.google.com/", "www.google.com");
-        testHost("GET http://www.google.com?v=1", "www.google.com");
-        testHost("GET http://www.google.com ", "www.google.com");
-        testHost("GET http://www.google.com\n", "www.google.com");
+        testPort("GET http://www.google.com:8080/", "8080");
+        testPort("GET http://www.google.com:8080?", "8080");
+        testPort("GET http://www.google.com:8080 ", "8080");
+        testPort("GET http://www.google.com:8080\n", "8080");
     }
 
-    private void testHost(String content, String host) {
+    private void testPort(String content, String port) {
         HttpReader reader = createReader(content);
         reader.readMethod();
         reader.readSchema();
-        assertThat(reader.readHost(), is(host));
+        reader.readHost();
+        assertThat(reader.readPort(), is(port));
     }
 
     private HttpReader createReader(String content) {

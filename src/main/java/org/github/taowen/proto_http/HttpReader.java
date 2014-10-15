@@ -14,7 +14,7 @@ public class HttpReader extends Task {
     private Field currentField;
 
     private static enum Field {
-        METHOD, HOST, SCHEMA
+        METHOD, HOST, PORT, SCHEMA
     }
     private static final byte CR = 0x0d;
     private static final byte LF = 0x0a;
@@ -52,11 +52,49 @@ public class HttpReader extends Task {
             b = get();
             assert '/' == b;
             b = get();
-            while (':' != b && '/' != b && '?' != b) {
+            String port = null;
+            while (':' != b) {
+                if ('/' == b) {
+                    port = "";
+                    break;
+                }
+                if ('?' == b) {
+                    port = "";
+                    break;
+                }
+                if (' ' == b) {
+                    port = "";
+                    break;
+                }
+                if (CR == b || LF == b) {
+                    port = "";
+                    break;
+                }
                 buf.append((char)b);
                 b = get();
             }
             fieldStringValue = buf.toString();
+            pass();
+            assert Field.PORT == currentField;
+            buf.setLength(0);
+            if (null == port) {
+                b = get();
+                while ('/' != b) {
+                    if ('?' == b) {
+                        break;
+                    }
+                    if (' ' == b) {
+                        break;
+                    }
+                    if (CR == b || LF == b) {
+                        break;
+                    }
+                    buf.append((char)b);
+                    b = get();
+                }
+                port = buf.toString();
+            }
+            fieldStringValue = port;
             pass();
         }
     }
@@ -107,6 +145,12 @@ public class HttpReader extends Task {
 
     public String readHost() {
         currentField = Field.HOST;
+        run();
+        return fieldStringValue;
+    }
+
+    public String readPort() {
+        currentField = Field.PORT;
         run();
         return fieldStringValue;
     }
