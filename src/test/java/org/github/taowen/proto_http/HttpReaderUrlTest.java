@@ -8,17 +8,12 @@ import java.util.Arrays;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-public class HttpReaderSchemaTest extends TestCase {
+public class HttpReaderUrlTest extends TestCase {
 
-    public void testHttp() {
-        testSchema("GET http:");
-        testSchema("GET   http:");
-    }
-
-    private void testSchema(String content) {
-        HttpReader reader = createReader(content);
+    public void test() {
+        HttpReader reader = createReader("GET http://www.google.com ");
         reader.readMethod();
-        assertThat(reader.readSchema(), is("http"));
+        assertThat(reader.readUrl(), is("http://www.google.com"));
     }
 
     private HttpReader createReader(String content) {

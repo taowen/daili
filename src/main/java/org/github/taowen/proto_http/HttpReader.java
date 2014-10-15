@@ -14,7 +14,7 @@ public class HttpReader extends Task {
     private Field currentField;
 
     private static enum Field {
-        METHOD, HOST, PORT, PATH, SCHEMA
+        METHOD, URL
     }
     private static final byte CR = 0x0d;
     private static final byte LF = 0x0a;
@@ -33,99 +33,9 @@ public class HttpReader extends Task {
         if (null == method) {
             return; // empty request
         }
-        if ("CONNECT".equals(method)) {
-            throw new UnsupportedOperationException("not implemented yet");
-        } else {
-            parseFirstLine();
-        }
-    }
-
-    private void parseFirstLine() throws Pausable {
-        byte b = skipEmptySpaces();
-        assert Field.SCHEMA == currentField;
-        StringBuilder buf = new StringBuilder();
-        while (':' != b) {
-            buf.append((char)b);
-            b = get();
-        }
-        fieldStringValue = buf.toString();
-        pass();
-        buf.setLength(0);
-        b = get();
-        assert '/' == b;
-        b = get();
-        assert '/' == b;
-        b = get();
-        String port = null;
-        String path = null;
-        assert Field.HOST == currentField;
-        while (':' != b) {
-            if ('/' == b) {
-                port = "";
-                break;
-            }
-            if ('?' == b) {
-                port = "";
-                path = "";
-                break;
-            }
-            if (' ' == b) {
-                port = "";
-                path = "";
-                break;
-            }
-            if (CR == b || LF == b) {
-                port = "";
-                path = "";
-                break;
-            }
-            buf.append((char)b);
-            b = get();
-        }
-        fieldStringValue = buf.toString();
-        pass();
-        assert Field.PORT == currentField;
-        buf.setLength(0);
-        if (null == port) {
-            b = get();
-            while ('/' != b) {
-                if ('?' == b) {
-                    path = "";
-                    break;
-                }
-                if (' ' == b) {
-                    path = "";
-                    break;
-                }
-                if (CR == b || LF == b) {
-                    path = "";
-                    break;
-                }
-                buf.append((char)b);
-                b = get();
-            }
-            port = buf.toString();
-        }
-        fieldStringValue = port;
-        pass();
-        assert Field.PATH == currentField;
-        buf.setLength(0);
-        if (null == path) {
-            b = get();
-            while ('?' != b) {
-                if (' ' == b) {
-                    break;
-                }
-                if (CR == b || LF == b) {
-                    break;
-                }
-                buf.append((char)b);
-                b = get();
-            }
-            path = buf.toString();
-        }
-        fieldStringValue = path;
-        pass();
+        assert Field.URL == currentField;
+        String url = processUrl();
+        pass(url);
     }
 
     private byte skipEmptySpaces() {
@@ -149,11 +59,29 @@ public class HttpReader extends Task {
         return method.toString();
     }
 
+    private String processUrl() throws Pausable {
+        byte b = skipEmptySpaces();
+        StringBuilder url = new StringBuilder();
+        while (b != ' ') {
+            if (CR == b || LF == b) {
+                return url.toString();
+            }
+            url.append((char)b);
+            b = get();
+        }
+        return url.toString();
+    }
+
     private byte get() {
         if (!currentByteBuffer.hasRemaining()) {
             currentByteBuffer = byteBufferStream.next();
         }
         return currentByteBuffer.get();
+    }
+
+    private void pass(String val) throws Pausable {
+        fieldStringValue = val;
+        pass();
     }
 
     protected void pass() throws Pausable {
@@ -166,26 +94,8 @@ public class HttpReader extends Task {
         return fieldStringValue;
     }
 
-    public String readSchema() {
-        currentField = Field.SCHEMA;
-        run();
-        return fieldStringValue;
-    }
-
-    public String readHost() {
-        currentField = Field.HOST;
-        run();
-        return fieldStringValue;
-    }
-
-    public String readPort() {
-        currentField = Field.PORT;
-        run();
-        return fieldStringValue;
-    }
-
-    public String readPath() {
-        currentField = Field.PATH;
+    public String readUrl() {
+        currentField = Field.URL;
         run();
         return fieldStringValue;
     }
