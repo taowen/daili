@@ -13,6 +13,7 @@ public class HttpReaderUrlTest extends TestCase {
     public void test() {
         testUrl("GET http://www.google.com ", "http://www.google.com");
         testUrl("GET http://www.google.com\n", "http://www.google.com");
+        testUrl("GET http://www.google.com\r\n", "http://www.google.com");
     }
 
     private void testUrl(String content, String url) {

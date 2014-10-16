@@ -14,7 +14,7 @@ public class HttpReader extends Task {
     private Field currentField;
 
     private static enum Field {
-        METHOD, VERSION, URL
+        METHOD, VERSION, HEADER_KEY, URL
     }
     private static final byte CR = 0x0d;
     private static final byte LF = 0x0a;
@@ -27,6 +27,11 @@ public class HttpReader extends Task {
 
     @Override
     public void execute() throws Pausable, Exception {
+        processRequestLine();
+        processHeaders();
+    }
+
+    protected void processRequestLine() throws Pausable {
         assert Field.METHOD == currentField;
         if (!processMethod()) {
             return;
@@ -43,6 +48,7 @@ public class HttpReader extends Task {
         byte b = get();
         if (CR == b || LF == b) {
             consumeLF(b);
+            pass();
             return false;
         }
         StringBuilder method = new StringBuilder();
@@ -84,6 +90,24 @@ public class HttpReader extends Task {
             version.append((char)b);
             b = get();
         }
+    }
+
+    protected void processHeaders() throws Pausable {
+        assert Field.HEADER_KEY == currentField;
+        byte b = get();
+        StringBuilder buf = new StringBuilder();
+        while (':' != b) {
+            if (CR == b || LF == b) {
+                consumeLF(b);
+                if (0 == buf.length()) {
+                    pass(null);
+                    return;
+                }
+            }
+            buf.append((char)b);
+            b = get();
+        }
+        pass(buf.toString());
     }
 
     private byte skipEmptySpaces() {
@@ -131,6 +155,12 @@ public class HttpReader extends Task {
 
     public String readVersion() {
         currentField = Field.VERSION;
+        run();
+        return fieldStringValue;
+    }
+
+    public String readHeaderKey() {
+        currentField = Field.HEADER_KEY;
         run();
         return fieldStringValue;
     }

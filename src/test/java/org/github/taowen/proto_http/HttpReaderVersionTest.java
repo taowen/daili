@@ -12,7 +12,9 @@ public class HttpReaderVersionTest extends TestCase {
 
     public void test() {
         testVersion("GET http://www.google.com\n", "HTTP/0.9");
+        testVersion("GET http://www.google.com\r\n", "HTTP/0.9");
         testVersion("GET http://www.google.com HTTP/1.0\n", "HTTP/1.0");
+        testVersion("GET http://www.google.com HTTP/1.0\r\n", "HTTP/1.0");
     }
 
     private void testVersion(String content, String version) {
