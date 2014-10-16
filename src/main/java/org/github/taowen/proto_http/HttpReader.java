@@ -14,10 +14,11 @@ public class HttpReader extends Task {
     private Field currentField;
 
     private static enum Field {
-        METHOD, URL
+        METHOD, VERSION, URL
     }
     private static final byte CR = 0x0d;
     private static final byte LF = 0x0a;
+    private static final String DEFAULT_VERSION = "HTTP/0.9";
 
     public void byteBufferStream(Iterator<ByteBuffer> byteBufferStream) {
         this.byteBufferStream = byteBufferStream;
@@ -27,15 +28,62 @@ public class HttpReader extends Task {
     @Override
     public void execute() throws Pausable, Exception {
         assert Field.METHOD == currentField;
-        String method = processMethod();
-        fieldStringValue = method;
-        pass();
-        if (null == method) {
-            return; // empty request
+        if (!processMethod()) {
+            return;
         }
         assert Field.URL == currentField;
-        String url = processUrl();
-        pass(url);
+        if (!processUrl()) {
+            return;
+        }
+        assert Field.VERSION == currentField;
+        processVersion();
+    }
+
+    protected boolean processMethod() throws Pausable {
+        byte b = get();
+        if (CR == b || LF == b) {
+            consumeLF(b);
+            return false;
+        }
+        StringBuilder method = new StringBuilder();
+        while (b != ' ') {
+            method.append((char)b);
+            b = get();
+        }
+        pass(method.toString());
+        return true;
+    }
+
+    protected boolean processUrl() throws Pausable {
+        byte b = skipEmptySpaces();
+        StringBuilder url = new StringBuilder();
+        while (b != ' ') {
+            if (CR == b || LF == b) {
+                consumeLF(b);
+                pass(url.toString());
+                assert Field.VERSION == currentField;
+                pass(DEFAULT_VERSION);
+                return false;
+            }
+            url.append((char)b);
+            b = get();
+        }
+        pass(url.toString());
+        return true;
+    }
+
+    protected void processVersion() throws Pausable {
+        StringBuilder version = new StringBuilder();
+        byte b = get();
+        while (true) {
+            if (CR == b || LF == b) {
+                consumeLF(b);
+                pass(version.toString());
+                return;
+            }
+            version.append((char)b);
+            b = get();
+        }
     }
 
     private byte skipEmptySpaces() {
@@ -46,30 +94,11 @@ public class HttpReader extends Task {
         return b;
     }
 
-    private String processMethod() throws Pausable {
-        byte b = get();
-        if (CR == b || LF == b) {
-            return null;
-        }
-        StringBuilder method = new StringBuilder();
-        while (b != ' ') {
-            method.append((char)b);
+    private void consumeLF(byte b) {
+        if (CR == b) {
             b = get();
+            assert LF == b;
         }
-        return method.toString();
-    }
-
-    private String processUrl() throws Pausable {
-        byte b = skipEmptySpaces();
-        StringBuilder url = new StringBuilder();
-        while (b != ' ') {
-            if (CR == b || LF == b) {
-                return url.toString();
-            }
-            url.append((char)b);
-            b = get();
-        }
-        return url.toString();
     }
 
     private byte get() {
@@ -96,6 +125,12 @@ public class HttpReader extends Task {
 
     public String readUrl() {
         currentField = Field.URL;
+        run();
+        return fieldStringValue;
+    }
+
+    public String readVersion() {
+        currentField = Field.VERSION;
         run();
         return fieldStringValue;
     }

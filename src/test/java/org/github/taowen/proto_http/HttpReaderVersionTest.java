@@ -8,17 +8,18 @@ import java.util.Arrays;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-public class HttpReaderUrlTest extends TestCase {
+public class HttpReaderVersionTest extends TestCase {
 
     public void test() {
-        testUrl("GET http://www.google.com ", "http://www.google.com");
-        testUrl("GET http://www.google.com\n", "http://www.google.com");
+        testVersion("GET http://www.google.com\n", "HTTP/0.9");
+        testVersion("GET http://www.google.com HTTP/1.0\n", "HTTP/1.0");
     }
 
-    private void testUrl(String content, String url) {
+    private void testVersion(String content, String version) {
         HttpReader reader = createReader(content);
         reader.readMethod();
-        assertThat(reader.readUrl(), is(url));
+        reader.readUrl();
+        assertThat(reader.readVersion(), is(version));
     }
 
     private HttpReader createReader(String content) {
