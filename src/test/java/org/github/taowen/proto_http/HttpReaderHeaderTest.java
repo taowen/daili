@@ -19,7 +19,9 @@ public class HttpReaderHeaderTest extends TestCase {
         reader.readUrl();
         reader.readVersion();
         assertThat(reader.readHeaderKey(), is("Host"));
+        assertThat(reader.readHeaderValue(), is("www.google.com"));
     }
+
     public void testEnd() {
         HttpReader reader = createReader(
                 "GET /",
