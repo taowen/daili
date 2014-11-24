@@ -6,14 +6,18 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayDeque;
+import java.util.LinkedList;
+import java.util.Queue;
 
 public class DnsReader extends DnsProcessor {
 
-    protected long fieldLongValue;
-    protected int fieldIntValue;
-    protected byte[] fieldBytesValue;
-    protected String fieldStringValue;
-    protected boolean fieldBooleanValue;
+    protected Queue<Object> output;
+
+    public DnsReader() {
+        processingFields = new LinkedList<Field>();
+        output = new LinkedList<Object>();
+    }
 
     public void skipHeader() {
         readId();
@@ -26,60 +30,62 @@ public class DnsReader extends DnsProcessor {
     }
 
     public int readId() {
-        currentField = Field.ID;
+        processingFields.offer(Field.ID);
         run();
-        return fieldIntValue;
+        return (Integer)output.remove();
     }
 
     public int readOpcode() {
-        currentField = Field.OPCODE;
+        processingFields.offer(Field.OPCODE);
         run();
-        return fieldIntValue;
+        return (Integer)output.remove();
     }
 
     public boolean readFlagQR() {
-        currentField = Field.FLAG_QR;
+        processingFields.offer(Field.FLAG_QR);
         run();
-        return fieldBooleanValue;
+        return (Boolean)output.remove();
     }
 
     public boolean readFlagAA() {
-        currentField = Field.FLAG_AA;
+        processingFields.offer(Field.FLAG_AA);
         run();
-        return fieldBooleanValue;
+        return (Boolean)output.remove();
     }
 
     public boolean readFlagTC() {
-        currentField = Field.FLAG_TC;
+        processingFields.offer(Field.FLAG_TC);
         run();
-        return fieldBooleanValue;
+        return (Boolean)output.remove();
     }
 
     public int readQuestionRecordsCount() {
-        currentField = Field.QUESTION_RECORDS_COUNT;
+        processingFields.offer(Field.QUESTION_RECORDS_COUNT);
         run();
-        return fieldIntValue;
+        return (Integer)output.remove();
     }
 
     public int readAnswerRecordsCount() {
-        currentField = Field.ANSWER_RECORDS_COUNT;
+        processingFields.offer(Field.ANSWER_RECORDS_COUNT);
         run();
-        return fieldIntValue;
+        return (Integer)output.remove();
     }
 
     public int readAuthorityRecordsCount() {
-        currentField = Field.AUTHORITY_RECORDS_COUNT;
+        processingFields.offer(Field.AUTHORITY_RECORDS_COUNT);
         run();
-        return fieldIntValue;
+        return (Integer)output.remove();
     }
 
     public int readAdditionalRecordsCount() {
-        currentField = Field.ADDITIONAL_RECORDS_COUNT;
+        processingFields.offer(Field.ADDITIONAL_RECORDS_COUNT);
         run();
-        return fieldIntValue;
+        return (Integer)output.remove();
     }
 
     public String readRecordName() {
+        processingFields.offer(Field.RECORD_NAME);
+        run();
         StringBuilder buf = new StringBuilder();
         while(true) {
             String label = readRecordNameLabel();
@@ -92,91 +98,93 @@ public class DnsReader extends DnsProcessor {
     }
 
     private String readRecordNameLabel() {
-        currentField = Field.RECORD_NAME;
+        processingFields.offer(Field.RECORD_NAME_LABEL);
         run();
-        return fieldStringValue;
+        return (String)output.remove();
     }
 
     public int readRecordType() {
-        currentField = Field.RECORD_TYPE;
+        processingFields.offer(Field.RECORD_TYPE);
         run();
-        return fieldIntValue;
+        return (Integer)output.remove();
     }
 
     public int readRecordDClass() {
-        currentField = Field.RECORD_DCLASS;
+        processingFields.offer(Field.RECORD_DCLASS);
         run();
-        return fieldIntValue;
+        return (Integer)output.remove();
     }
 
     public long readRecordTTL() {
-        currentField = Field.RECORD_TTL;
+        processingFields.offer(Field.RECORD_TTL);
         run();
-        return fieldLongValue;
+        return (Long)output.remove();
     }
 
     public int readRecordDataLength() {
-        currentField = Field.RECORD_DATA_LENGTH;
+        processingFields.offer(Field.RECORD_DATA_LENGTH);
         run();
-        return fieldIntValue;
+        return (Integer)output.remove();
     }
 
     public InetAddress readRecordInetAddress() throws UnknownHostException {
-        currentField = Field.RECORD_INET_ADDRESS;
+        processingFields.offer(Field.RECORD_INET_ADDRESS);
         run();
-        return InetAddress.getByAddress(fieldBytesValue);
+        return InetAddress.getByAddress((byte[])output.remove());
     }
 
     @Override
     protected void processAdditionalRecordsCount() throws Pausable {
-        pass(byteBuffer.getShort() & 0xFFFF);
+        output.offer(byteBuffer.getShort() & 0xFFFF);
     }
 
     @Override
     protected void processAuthorityRecordsCount() throws Pausable {
-        pass(byteBuffer.getShort() & 0xFFFF);
+        output.offer(byteBuffer.getShort() & 0xFFFF);
     }
 
     @Override
     protected void processAnswerRecordsCount() throws Pausable {
-        pass(byteBuffer.getShort() & 0xFFFF);
+        output.offer(byteBuffer.getShort() & 0xFFFF);
     }
 
     @Override
     protected int processQuestionRecordsCount() throws Pausable {
         int questionRecordsCount = byteBuffer.getShort() & 0xFFFF;
-        pass(questionRecordsCount);
+        output.offer(questionRecordsCount);
         return questionRecordsCount;
     }
 
     @Override
     protected void processId() throws Pausable {
-        pass(byteBuffer.getShort() & 0xFFFF);
+        output.offer(byteBuffer.getShort() & 0xFFFF);
     }
 
     @Override
     protected void processFlags() throws Pausable {
         int flags = byteBuffer.getShort() & 0xFFFF;
-        while (Field.END_FLGAS != currentField) {
-            switch (currentField) {
+        Field nextField = nextField();
+        while (Field.END_FLGAS != nextField) {
+            switch (nextField) {
                 case OPCODE:
-                    pass((flags >> 11) & 0xF);
+                    output.offer((flags >> 11) & 0xF);
                     break;
                 case FLAG_QR:
-                    pass(getFlag(flags, 0));
+                    output.offer(getFlag(flags, 0));
                     break;
                 case FLAG_AA:
-                    pass(getFlag(flags, 5));
+                    output.offer(getFlag(flags, 5));
                     break;
                 case FLAG_TC:
-                    pass(getFlag(flags, 6));
+                    output.offer(getFlag(flags, 6));
                     break;
                 case FLAG_RD:
-                    pass(getFlag(flags, 7));
+                    output.offer(getFlag(flags, 7));
                     break;
                 default:
-                    throw new RuntimeException("unexpected field: " + currentField);
+                    throw new RuntimeException("unexpected field: " + nextField);
             }
+            nextField = nextField();
         }
     }
 
@@ -186,36 +194,35 @@ public class DnsReader extends DnsProcessor {
 
     @Override
     protected void processRecordInetAddress() throws Pausable {
-        fieldBytesValue = new byte[4];
+        byte[] fieldBytesValue = new byte[4];
         byteBuffer.get(fieldBytesValue);
-        pass();
+        output.offer(fieldBytesValue);
     }
 
     @Override
     protected void processRecordDataLength() throws Pausable {
-        pass(byteBuffer.getShort() & 0xFFFF);
+        output.offer(byteBuffer.getShort() & 0xFFFF);
     }
 
     @Override
     protected void skipRecordData() throws Pausable {
         int dataLength = byteBuffer.getShort() & 0xFFFF;
         byteBuffer.position(byteBuffer.position() + dataLength);
-        pass();
     }
 
     @Override
     protected void processRecordTTL() throws Pausable {
-        pass(byteBuffer.getInt() & 0xFFFFFFFFL);
+        output.offer(byteBuffer.getInt() & 0xFFFFFFFFL);
     }
 
     @Override
     protected void processRecordDClass() throws Pausable {
-        pass(byteBuffer.getShort() & 0xFFFF);
+        output.offer(byteBuffer.getShort() & 0xFFFF);
     }
 
     @Override
     protected void processRecordType() throws Pausable {
-        pass(byteBuffer.getShort() & 0xFFFF);
+        output.offer(byteBuffer.getShort() & 0xFFFF);
 
     }
 
@@ -228,15 +235,14 @@ public class DnsReader extends DnsProcessor {
             int len = byteBuffer.get();
             if (len == 0)
             {
-                fieldStringValue = null;
-                pass();
                 break;
             }
             switch (len & 0xC0)
             {
                 case 0x00:
                     //buf.append("[" + off + "]");
-                    pass(readUTF(len));
+                    assert Field.RECORD_NAME_LABEL == nextField();
+                    output.offer(readUTF(len));
                     break;
                 case 0xC0:
                     //buf.append("<" + (off - 1) + ">");
@@ -255,6 +261,8 @@ public class DnsReader extends DnsProcessor {
                     throw new IOException("bad domain name: at " + byteBuffer.position());
             }
         }
+        assert Field.RECORD_NAME_LABEL == nextField();
+        output.offer(null);
         if (savePoint >= 0) {
             byteBuffer.position(savePoint);
         }
@@ -264,25 +272,5 @@ public class DnsReader extends DnsProcessor {
         byte[] bytes = new byte[len];
         byteBuffer.get(bytes);
         return new String(bytes, "UTF8");
-    }
-
-    protected void pass(long val) throws Pausable {
-        fieldLongValue = val;
-        pass();
-    }
-
-    protected void pass(int val) throws Pausable {
-        fieldIntValue = val;
-        pass();
-    }
-
-    protected void pass(boolean val) throws Pausable {
-        fieldBooleanValue = val;
-        pass();
-    }
-
-    protected void pass(String val) throws Pausable {
-        fieldStringValue = val;
-        pass();
     }
 }

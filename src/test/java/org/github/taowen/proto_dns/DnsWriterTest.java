@@ -93,6 +93,7 @@ public class DnsWriterTest extends TestCase {
         writer.writeRecordDClass(DClass.IN);
         writer.endRecord();
         writer.startRecord();
+        writer.processingFields.offer(DnsWriter.Field.RECORD_NAME);
         writer.writeRecordNameLabel(wwwGoogleComPos);
         writer.writeRecordType(Type.A);
         writer.writeRecordDClass(DClass.IN);

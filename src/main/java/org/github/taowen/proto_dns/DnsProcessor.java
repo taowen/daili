@@ -6,6 +6,7 @@ import kilim.Task;
 import java.io.EOFException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Queue;
 
 public abstract class DnsProcessor extends Task {
 
@@ -25,12 +26,12 @@ public abstract class DnsProcessor extends Task {
         AUTHORITY_RECORDS_COUNT,
         ADDITIONAL_RECORDS_COUNT,
         START_FLAGS, END_FLGAS,
-        START_RECORD, RECORD_NAME, RECORD_TYPE, RECORD_DCLASS, END_RECORD,
+        START_RECORD, RECORD_NAME, RECORD_NAME_LABEL, RECORD_TYPE, RECORD_DCLASS, END_RECORD,
         RECORD_DATA_LENGTH, RECORD_TTL, RECORD_INET_ADDRESS, ID
     }
 
     protected ByteBuffer byteBuffer;
-    protected Field currentField;
+    protected Queue<Field> processingFields;
 
     @Override
     public void execute() throws Pausable, Exception {
@@ -43,48 +44,53 @@ public abstract class DnsProcessor extends Task {
         }
     }
 
+    protected Field nextField() throws Pausable {
+        Field nextField = processingFields.poll();
+        if (null != nextField) {
+            return nextField;
+        }
+        yield();
+        return processingFields.remove();
+    }
+
     private int processHeader() throws Pausable {
-        assert Field.ID == currentField;
+        assert Field.ID == nextField();
         processId();
-        assert Field.START_FLAGS == currentField;
-        pass();
+        assert Field.START_FLAGS == nextField();
         processFlags();
-        assert Field.END_FLGAS == currentField;
-        pass();
-        assert Field.QUESTION_RECORDS_COUNT == currentField;
+        assert Field.QUESTION_RECORDS_COUNT == nextField();
         int questionRecordsCount = processQuestionRecordsCount();
-        assert Field.ANSWER_RECORDS_COUNT == currentField;
+        assert Field.ANSWER_RECORDS_COUNT == nextField();
         processAnswerRecordsCount();
-        assert Field.AUTHORITY_RECORDS_COUNT == currentField;
+        assert Field.AUTHORITY_RECORDS_COUNT == nextField();
         processAuthorityRecordsCount();
-        assert Field.ADDITIONAL_RECORDS_COUNT == currentField;
+        assert Field.ADDITIONAL_RECORDS_COUNT == nextField();
         processAdditionalRecordsCount();
         return questionRecordsCount;
     }
 
     private void processRecord(boolean isQuestionRecord) throws Pausable, IOException {
-        assert Field.START_RECORD == currentField;
-        pass();
-        assert Field.RECORD_NAME == currentField;
+        assert Field.START_RECORD == nextField();
+        assert Field.RECORD_NAME == nextField();
         processRecordName();
-        assert Field.RECORD_TYPE == currentField;
+        assert Field.RECORD_TYPE == nextField();
         processRecordType();
-        assert Field.RECORD_DCLASS == currentField;
+        assert Field.RECORD_DCLASS == nextField();
         processRecordDClass();
         if (!isQuestionRecord) {
-            assert Field.RECORD_TTL == currentField;
+            assert Field.RECORD_TTL == nextField();
             processRecordTTL();
-            if (Field.END_RECORD == currentField) {
+            Field nextField = nextField();
+            if (Field.END_RECORD == nextField) {
                 skipRecordData();
                 return;
             }
-            assert Field.RECORD_DATA_LENGTH == currentField;
+            assert Field.RECORD_DATA_LENGTH == nextField;
             processRecordDataLength();
-            assert Field.RECORD_INET_ADDRESS == currentField;
+            assert Field.RECORD_INET_ADDRESS == nextField();
             processRecordInetAddress();
         }
-        assert Field.END_RECORD == currentField;
-        pass();
+        assert Field.END_RECORD == nextField();
     }
 
     protected abstract void processRecordInetAddress() throws Pausable;
@@ -113,10 +119,6 @@ public abstract class DnsProcessor extends Task {
 
     protected abstract void processFlags() throws Pausable;
 
-    protected void pass() throws Pausable {
-        yield();
-    }
-
     public void byteBuffer(ByteBuffer byteBuffer) {
         this.byteBuffer = byteBuffer;
     }
@@ -126,22 +128,22 @@ public abstract class DnsProcessor extends Task {
     }
 
     public void startFlags() {
-        currentField = Field.START_FLAGS;
+        processingFields.offer(Field.START_FLAGS);
         run();
     }
 
     public void endFlags() {
-        currentField = Field.END_FLGAS;
+        processingFields.offer(Field.END_FLGAS);
         run();
     }
 
     public void startRecord() throws EOFException {
-        currentField = Field.START_RECORD;
+        processingFields.offer(Field.START_RECORD);
         run();
     }
 
     public void endRecord() throws EOFException {
-        currentField = Field.END_RECORD;
+        processingFields.offer(Field.END_RECORD);
         run();
     }
 }

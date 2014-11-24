@@ -4,27 +4,31 @@ import kilim.Pausable;
 
 import java.io.IOException;
 import java.net.InetAddress;
+import java.util.ArrayDeque;
+import java.util.LinkedList;
+import java.util.Queue;
 
 public class DnsWriter extends DnsProcessor {
 
-    protected long fieldLongValue;
-    protected int fieldIntValue;
-    protected boolean fieldBooleanValue;
-    protected byte[] fieldBytesValue;
-    protected String fieldStringValue;
+    protected Queue<Object> input;
+
+    public DnsWriter() {
+        processingFields = new LinkedList<Field>();
+        input = new LinkedList<Object>();
+    }
 
     @Override
     protected void processRecordInetAddress() throws Pausable {
+        byte[] fieldBytesValue = (byte[])input.remove();
         for (byte b : fieldBytesValue) {
             byteBuffer.put(b);
         }
-        pass();
     }
 
     @Override
     protected void processRecordDataLength() throws Pausable {
+        int fieldIntValue = (Integer)input.remove();
         byteBuffer.putShort((short) (fieldIntValue & 0xFFFF));
-        pass();
     }
 
     @Override
@@ -34,86 +38,85 @@ public class DnsWriter extends DnsProcessor {
 
     @Override
     protected void processRecordTTL() throws Pausable {
+        long fieldLongValue = (Long)input.remove();
         byteBuffer.putInt((int) (fieldLongValue & 0xFFFFFFFFL));
-        pass();
     }
 
     @Override
     protected void processRecordDClass() throws Pausable {
+        int fieldIntValue = (Integer)input.remove();
         byteBuffer.putShort((short) (fieldIntValue & 0xFFFF));
-        pass();
     }
 
     @Override
     protected void processRecordType() throws Pausable {
+        int fieldIntValue = (Integer)input.remove();
         byteBuffer.putShort((short) (fieldIntValue & 0xFFFF));
-        pass();
     }
 
     @Override
     protected void processRecordName() throws IOException, Pausable {
         while (true) {
-            assert Field.RECORD_NAME == currentField;
+            assert Field.RECORD_NAME_LABEL == nextField();
+            int fieldIntValue = (Integer)input.remove();
+            String fieldStringValue = (String)input.remove();
             if (fieldIntValue > 0) {
                 int pos = fieldIntValue;
                 pos |= (0xC0 << 8);
                 byteBuffer.putShort((short) (pos & 0xFFFF));
-                pass();
                 return;
             }
             if (null == fieldStringValue) {
                 byteBuffer.put((byte) 0);
-                pass();
                 return;
             }
             byte[] bytes = fieldStringValue.getBytes("UTF8");
             byteBuffer.put((byte)bytes.length);
             byteBuffer.put(bytes);
-            pass();
         }
     }
 
     @Override
     protected void processAdditionalRecordsCount() throws Pausable {
+        int fieldIntValue = (Integer)input.remove();
         byteBuffer.putShort((short) (fieldIntValue & 0xFFFF));
-        pass();
     }
 
     @Override
     protected void processAuthorityRecordsCount() throws Pausable {
+        int fieldIntValue = (Integer)input.remove();
         byteBuffer.putShort((short) (fieldIntValue & 0xFFFF));
-        pass();
     }
 
     @Override
     protected void processAnswerRecordsCount() throws Pausable {
+        int fieldIntValue = (Integer)input.remove();
         byteBuffer.putShort((short) (fieldIntValue & 0xFFFF));
-        pass();
     }
 
     @Override
     protected int processQuestionRecordsCount() throws Pausable {
+        int fieldIntValue = (Integer)input.remove();
         int questionRecordsCount = fieldIntValue;
         byteBuffer.putShort((short) (questionRecordsCount & 0xFFFF));
-        pass();
         return questionRecordsCount;
     }
 
     @Override
     protected void processId() throws Pausable {
+        int fieldIntValue = (Integer)input.remove();
         byteBuffer.putShort((short) (fieldIntValue & 0xFFFF));
-        pass();
     }
 
     @Override
     protected void processFlags() throws Pausable {
         int flags = 0;
-        while (Field.END_FLGAS != currentField) {
-            switch (currentField) {
+        Field nextField = nextField();
+        while (Field.END_FLGAS != nextField) {
+            switch (nextField) {
                 case OPCODE:
                     flags &= 0x87FF;
-                    flags |= (fieldIntValue << 11);
-                    pass();
+                    flags |= ((Integer)input.remove() << 11);
                     break;
                 case FLAG_QR:
                     flags = setFlag(flags, 0);
@@ -128,67 +131,69 @@ public class DnsWriter extends DnsProcessor {
                     flags = setFlag(flags, 7);
                     break;
                 default:
-                    throw new RuntimeException("unexpected field: " + currentField);
+                    throw new RuntimeException("unexpected field: " + nextField);
             }
+            nextField = nextField();
         }
         byteBuffer.putShort((short) (flags & 0xFFFF));
     }
 
     private int setFlag(int flags, int bit) throws Pausable {
-        if (fieldBooleanValue) {
+        if ((Boolean)input.remove()) {
             flags |= (1 << (15 - bit));
         } else {
             flags &= ~(1 << (15 - bit));
         }
-        pass();
         return flags;
     }
 
     public void writeId(int id) {
-        currentField = Field.ID;
-        fieldIntValue = id;
+        processingFields.offer(Field.ID);
+        input.offer(id);
         run();
     }
 
     public void writeFlagRD(boolean val) {
-        currentField = Field.FLAG_RD;
-        fieldBooleanValue = val;
+        processingFields.offer(Field.FLAG_RD);
+        input.offer(val);
         run();
     }
 
     public void writeOpcode(int opcode) {
-        currentField = Field.OPCODE;
-        fieldIntValue = opcode;
+        processingFields.offer(Field.OPCODE);
+        input.offer(opcode);
         run();
     }
 
     public void writeQuestionRecordsCount(int count) {
-        currentField = Field.QUESTION_RECORDS_COUNT;
-        fieldIntValue = count;
+        processingFields.offer(Field.QUESTION_RECORDS_COUNT);
+        input.offer(count);
         run();
     }
 
     public void writeAnswerRecordsCount(int count) {
-        currentField = Field.ANSWER_RECORDS_COUNT;
-        fieldIntValue = count;
+        processingFields.offer(Field.ANSWER_RECORDS_COUNT);
+        input.offer(count);
         run();
 
     }
 
     public void writeAuthorityRecordsCount(int count) {
-        currentField = Field.AUTHORITY_RECORDS_COUNT;
-        fieldIntValue = count;
+        processingFields.offer(Field.AUTHORITY_RECORDS_COUNT);
+        input.offer(count);
         run();
 
     }
 
     public void writeAdditionalRecordsCount(int count) {
-        currentField = Field.ADDITIONAL_RECORDS_COUNT;
-        fieldIntValue = count;
+        processingFields.offer(Field.ADDITIONAL_RECORDS_COUNT);
+        input.offer(count);
         run();
     }
 
     public void writeRecordName(String recordName) {
+        processingFields.offer(Field.RECORD_NAME);
+        run();
         for (String label : recordName.split("\\.")) {
             writeRecordNameLabel(label);
         }
@@ -196,47 +201,47 @@ public class DnsWriter extends DnsProcessor {
     }
 
     public void writeRecordNameLabel(int position) {
-        currentField = Field.RECORD_NAME;
-        fieldIntValue = position;
-        fieldStringValue = null;
+        processingFields.offer(Field.RECORD_NAME_LABEL);
+        input.offer(position);
+        input.offer(null);
         run();
 
     }
 
     public void writeRecordNameLabel(String label) {
-        currentField = Field.RECORD_NAME;
-        fieldIntValue = 0;
-        fieldStringValue = label;
+        processingFields.offer(Field.RECORD_NAME_LABEL);
+        input.offer(0);
+        input.offer(label);
         run();
     }
 
     public void writeRecordType(int type) {
-        currentField = Field.RECORD_TYPE;
-        fieldIntValue = type;
+        processingFields.offer(Field.RECORD_TYPE);
+        input.offer(type);
         run();
     }
 
     public void writeRecordDClass(int dclass) {
-        currentField = Field.RECORD_DCLASS;
-        fieldIntValue = dclass;
+        processingFields.offer(Field.RECORD_DCLASS);
+        input.offer(dclass);
         run();
     }
 
     public void writeRecordTTL(long ttl) {
-        currentField = Field.RECORD_TTL;
-        fieldLongValue = ttl;
+        processingFields.offer(Field.RECORD_TTL);
+        input.offer(ttl);
         run();
     }
 
     public void writeRecordDataLength(int dataLength) {
-        currentField = Field.RECORD_DATA_LENGTH;
-        fieldIntValue = dataLength;
+        processingFields.offer(Field.RECORD_DATA_LENGTH);
+        input.offer(dataLength);
         run();
     }
 
     public void writeRecordInetAddress(InetAddress address) {
-        currentField = Field.RECORD_INET_ADDRESS;
-        fieldBytesValue = address.getAddress();
+        processingFields.offer(Field.RECORD_INET_ADDRESS);
+        input.offer(address.getAddress());
         run();
     }
 }
