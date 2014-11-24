@@ -33,6 +33,15 @@ public abstract class DnsProcessor extends Task {
     protected ByteBuffer byteBuffer;
     protected Queue<Field> processingFields;
 
+    protected Field nextField() throws Pausable {
+        Field nextField = processingFields.poll();
+        if (null != nextField) {
+            return nextField;
+        }
+        yield();
+        return processingFields.remove();
+    }
+
     @Override
     public void execute() throws Pausable, Exception {
         int questionRecordsCount = processHeader();
@@ -42,15 +51,6 @@ public abstract class DnsProcessor extends Task {
         while(true) {
             processRecord(false);
         }
-    }
-
-    protected Field nextField() throws Pausable {
-        Field nextField = processingFields.poll();
-        if (null != nextField) {
-            return nextField;
-        }
-        yield();
-        return processingFields.remove();
     }
 
     private int processHeader() throws Pausable {

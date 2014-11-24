@@ -5,13 +5,15 @@ import kilim.Task;
 
 import java.nio.ByteBuffer;
 import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.Queue;
 
 public class HttpReader extends Task {
 
     private Iterator<ByteBuffer> byteBufferStream;
-    protected String fieldStringValue;
     private ByteBuffer currentByteBuffer;
-    private Field currentField;
+    protected Queue<Field> processingFields;
+    protected Queue<Object> output;
 
     private static enum Field {
         METHOD, VERSION, HEADER_KEY, HEADER_VALUE, URL
@@ -20,9 +22,23 @@ public class HttpReader extends Task {
     private static final byte LF = 0x0a;
     private static final String DEFAULT_VERSION = "HTTP/0.9";
 
+    public HttpReader() {
+        output = new LinkedList<Object>();
+        processingFields = new LinkedList<Field>();
+    }
+
     public void byteBufferStream(Iterator<ByteBuffer> byteBufferStream) {
         this.byteBufferStream = byteBufferStream;
         currentByteBuffer = byteBufferStream.next();
+    }
+
+    protected Field nextField() throws Pausable {
+        Field nextField = processingFields.poll();
+        if (null != nextField) {
+            return nextField;
+        }
+        yield();
+        return processingFields.remove();
     }
 
     @Override
@@ -32,15 +48,15 @@ public class HttpReader extends Task {
     }
 
     protected void processRequestLine() throws Pausable {
-        assert Field.METHOD == currentField;
+        assert Field.METHOD == nextField();
         if (!processMethod()) {
             return;
         }
-        assert Field.URL == currentField;
+        assert Field.URL == nextField();
         if (!processUrl()) {
             return;
         }
-        assert Field.VERSION == currentField;
+        assert Field.VERSION == nextField();
         processVersion();
     }
 
@@ -48,7 +64,7 @@ public class HttpReader extends Task {
         byte b = get();
         if (CR == b || LF == b) {
             consumeLF(b);
-            pass();
+            output.offer(null);
             return false;
         }
         StringBuilder method = new StringBuilder();
@@ -56,7 +72,7 @@ public class HttpReader extends Task {
             method.append((char)b);
             b = get();
         }
-        pass(method.toString());
+        output.offer(method.toString());
         return true;
     }
 
@@ -66,15 +82,15 @@ public class HttpReader extends Task {
         while (b != ' ') {
             if (CR == b || LF == b) {
                 consumeLF(b);
-                pass(url.toString());
-                assert Field.VERSION == currentField;
-                pass(DEFAULT_VERSION);
+                output.offer(url.toString());
+                assert Field.VERSION == nextField();
+                output.offer(DEFAULT_VERSION);
                 return false;
             }
             url.append((char)b);
             b = get();
         }
-        pass(url.toString());
+        output.offer(url.toString());
         return true;
     }
 
@@ -84,7 +100,7 @@ public class HttpReader extends Task {
         while (true) {
             if (CR == b || LF == b) {
                 consumeLF(b);
-                pass(version.toString());
+                output.offer(version.toString());
                 return;
             }
             version.append((char)b);
@@ -93,22 +109,22 @@ public class HttpReader extends Task {
     }
 
     protected void processHeaders() throws Pausable {
-        assert Field.HEADER_KEY == currentField;
+        assert Field.HEADER_KEY == nextField();
         byte b = get();
         StringBuilder buf = new StringBuilder();
         while (':' != b) {
             if (CR == b || LF == b) {
                 consumeLF(b);
                 if (0 == buf.length()) {
-                    pass(null);
+                    output.offer(null);
                     return;
                 }
             }
             buf.append((char)b);
             b = get();
         }
-        pass(buf.toString());
-        assert Field.HEADER_VALUE == currentField;
+        output.offer(buf.toString());
+        assert Field.HEADER_VALUE == nextField();
         buf.setLength(0);
         b = get();
         while (' ' == b) {
@@ -122,7 +138,7 @@ public class HttpReader extends Task {
             buf.append((char)b);
             b = get();
         }
-        pass(buf.toString());
+        output.offer(buf.toString());
     }
 
     private byte skipEmptySpaces() {
@@ -147,42 +163,33 @@ public class HttpReader extends Task {
         return currentByteBuffer.get();
     }
 
-    private void pass(String val) throws Pausable {
-        fieldStringValue = val;
-        pass();
-    }
-
-    protected void pass() throws Pausable {
-        yield();
-    }
-
     public String readMethod() {
-        currentField = Field.METHOD;
+        processingFields.offer(Field.METHOD);
         run();
-        return fieldStringValue;
+        return (String)output.remove();
     }
 
     public String readUrl() {
-        currentField = Field.URL;
+        processingFields.offer(Field.URL);
         run();
-        return fieldStringValue;
+        return (String)output.remove();
     }
 
     public String readVersion() {
-        currentField = Field.VERSION;
+        processingFields.offer(Field.VERSION);
         run();
-        return fieldStringValue;
+        return (String)output.remove();
     }
 
     public String readHeaderKey() {
-        currentField = Field.HEADER_KEY;
+        processingFields.offer(Field.HEADER_KEY);
         run();
-        return fieldStringValue;
+        return (String)output.remove();
     }
 
     public String readHeaderValue() {
-        currentField = Field.HEADER_VALUE;
+        processingFields.offer(Field.HEADER_VALUE);
         run();
-        return fieldStringValue;
+        return (String)output.remove();
     }
 }
