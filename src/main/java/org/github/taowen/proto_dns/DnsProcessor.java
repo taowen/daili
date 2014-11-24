@@ -39,7 +39,13 @@ public abstract class DnsProcessor extends Task {
             return nextField;
         }
         yield();
-        return processingFields.remove();
+        nextField = processingFields.remove();
+        return nextField;
+    }
+
+    protected void assertNextField(Field expected) throws Pausable {
+        Field nextField = nextField();
+        assert expected == nextField;
     }
 
     @Override
@@ -54,43 +60,43 @@ public abstract class DnsProcessor extends Task {
     }
 
     private int processHeader() throws Pausable {
-        assert Field.ID == nextField();
+        assertNextField(Field.ID);
         processId();
-        assert Field.START_FLAGS == nextField();
+        assertNextField(Field.START_FLAGS);
         processFlags();
-        assert Field.QUESTION_RECORDS_COUNT == nextField();
+        assertNextField(Field.QUESTION_RECORDS_COUNT);
         int questionRecordsCount = processQuestionRecordsCount();
-        assert Field.ANSWER_RECORDS_COUNT == nextField();
+        assertNextField(Field.ANSWER_RECORDS_COUNT);
         processAnswerRecordsCount();
-        assert Field.AUTHORITY_RECORDS_COUNT == nextField();
+        assertNextField(Field.AUTHORITY_RECORDS_COUNT);
         processAuthorityRecordsCount();
-        assert Field.ADDITIONAL_RECORDS_COUNT == nextField();
+        assertNextField(Field.ADDITIONAL_RECORDS_COUNT);
         processAdditionalRecordsCount();
         return questionRecordsCount;
     }
 
     private void processRecord(boolean isQuestionRecord) throws Pausable, IOException {
-        assert Field.START_RECORD == nextField();
-        assert Field.RECORD_NAME == nextField();
+        assertNextField(Field.START_RECORD);
+        assertNextField(Field.RECORD_NAME);
         processRecordName();
-        assert Field.RECORD_TYPE == nextField();
+        assertNextField(Field.RECORD_TYPE);
         processRecordType();
-        assert Field.RECORD_DCLASS == nextField();
+        assertNextField(Field.RECORD_DCLASS);
         processRecordDClass();
         if (!isQuestionRecord) {
-            assert Field.RECORD_TTL == nextField();
+            assertNextField(Field.RECORD_TTL);
             processRecordTTL();
             Field nextField = nextField();
             if (Field.END_RECORD == nextField) {
                 skipRecordData();
                 return;
             }
-            assert Field.RECORD_DATA_LENGTH == nextField;
+            assertNextField(Field.RECORD_DATA_LENGTH);
             processRecordDataLength();
-            assert Field.RECORD_INET_ADDRESS == nextField();
+            assertNextField(Field.RECORD_INET_ADDRESS);
             processRecordInetAddress();
         }
-        assert Field.END_RECORD == nextField();
+        assertNextField(Field.END_RECORD);
     }
 
     protected abstract void processRecordInetAddress() throws Pausable;

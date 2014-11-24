@@ -241,7 +241,7 @@ public class DnsReader extends DnsProcessor {
             {
                 case 0x00:
                     //buf.append("[" + off + "]");
-                    assert Field.RECORD_NAME_LABEL == nextField();
+                    assertNextField(Field.RECORD_NAME_LABEL);
                     output.offer(readUTF(len));
                     break;
                 case 0xC0:
@@ -261,7 +261,7 @@ public class DnsReader extends DnsProcessor {
                     throw new IOException("bad domain name: at " + byteBuffer.position());
             }
         }
-        assert Field.RECORD_NAME_LABEL == nextField();
+        assertNextField(Field.RECORD_NAME_LABEL);
         output.offer(null);
         if (savePoint >= 0) {
             byteBuffer.position(savePoint);

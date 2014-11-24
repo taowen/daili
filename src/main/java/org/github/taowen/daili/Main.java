@@ -47,6 +47,7 @@ public class Main {
                             dnsPacket.writeRecordDClass(dnsPacket.DCLASS_IN);
                             dnsPacket.endRecord();
                             dnsPacket.startRecord();
+                            dnsPacket.startRecordName();
                             dnsPacket.writeRecordNameLabel(wwwGoogleComPos);
                             dnsPacket.writeRecordType(dnsPacket.TYPE_A);
                             dnsPacket.writeRecordDClass(dnsPacket.DCLASS_IN);

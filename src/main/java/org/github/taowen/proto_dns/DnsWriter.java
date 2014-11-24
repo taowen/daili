@@ -57,7 +57,7 @@ public class DnsWriter extends DnsProcessor {
     @Override
     protected void processRecordName() throws IOException, Pausable {
         while (true) {
-            assert Field.RECORD_NAME_LABEL == nextField();
+            assertNextField(Field.RECORD_NAME_LABEL);
             int fieldIntValue = (Integer)input.remove();
             String fieldStringValue = (String)input.remove();
             if (fieldIntValue > 0) {
@@ -192,12 +192,16 @@ public class DnsWriter extends DnsProcessor {
     }
 
     public void writeRecordName(String recordName) {
-        processingFields.offer(Field.RECORD_NAME);
-        run();
+        startRecordName();
         for (String label : recordName.split("\\.")) {
             writeRecordNameLabel(label);
         }
         writeRecordNameLabel(null);
+    }
+
+    public void startRecordName() {
+        processingFields.offer(Field.RECORD_NAME);
+        run();
     }
 
     public void writeRecordNameLabel(int position) {

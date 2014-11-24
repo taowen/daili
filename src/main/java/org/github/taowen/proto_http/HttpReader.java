@@ -41,6 +41,11 @@ public class HttpReader extends Task {
         return processingFields.remove();
     }
 
+    protected void assertNextField(Field expected) throws Pausable {
+        Field nextField = nextField();
+        assert expected == nextField;
+    }
+
     @Override
     public void execute() throws Pausable, Exception {
         processRequestLine();
@@ -48,15 +53,15 @@ public class HttpReader extends Task {
     }
 
     protected void processRequestLine() throws Pausable {
-        assert Field.METHOD == nextField();
+        assertNextField(Field.METHOD);
         if (!processMethod()) {
             return;
         }
-        assert Field.URL == nextField();
+        assertNextField(Field.URL);
         if (!processUrl()) {
             return;
         }
-        assert Field.VERSION == nextField();
+        assertNextField(Field.VERSION);
         processVersion();
     }
 
@@ -83,7 +88,7 @@ public class HttpReader extends Task {
             if (CR == b || LF == b) {
                 consumeLF(b);
                 output.offer(url.toString());
-                assert Field.VERSION == nextField();
+                assertNextField(Field.VERSION);
                 output.offer(DEFAULT_VERSION);
                 return false;
             }
@@ -109,7 +114,7 @@ public class HttpReader extends Task {
     }
 
     protected void processHeaders() throws Pausable {
-        assert Field.HEADER_KEY == nextField();
+        assertNextField(Field.HEADER_KEY);
         byte b = get();
         StringBuilder buf = new StringBuilder();
         while (':' != b) {
@@ -124,7 +129,7 @@ public class HttpReader extends Task {
             b = get();
         }
         output.offer(buf.toString());
-        assert Field.HEADER_VALUE == nextField();
+        assertNextField(Field.HEADER_VALUE);
         buf.setLength(0);
         b = get();
         while (' ' == b) {
